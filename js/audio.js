@@ -37,8 +37,8 @@ export class Buzzer {
     osc.stop(t + dur + 0.02);
   }
 
-  beep() { this.tone(0.11, 0.14); }
-  blip() { this.tone(0.05, 0.12, 3200); }
+  beep() { this.tone(0.11, 0.14); if (this.onBeep) this.onBeep(45); }
+  blip() { this.tone(0.05, 0.12, 3200); if (this.onBeep) this.onBeep(20); }
   beep2() { this.beep(); setTimeout(() => this.beep(), 180); }
   click() { this.tone(0.012, 0.05, 1800); }
 

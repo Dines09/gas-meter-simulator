@@ -1,0 +1,19 @@
+{
+  "name": "Gas Detector Trainer",
+  "short_name": "Gas Trainer",
+  "description": "Training simulator for Riken Keiki GX-8000, RX-8000 and GX-9000 portable gas detectors.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#101418",
+  "theme_color": "#101418",
+  "categories": ["education", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

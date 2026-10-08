@@ -34,6 +34,9 @@ export class Tubes {
     stage.addEventListener('pointercancel', e => this.onUp(e), true);
   }
 
+  // a solid body (the meter) that hoses must hang around, never across
+  setObstacle(el) { this.obstacleEl = el; }
+
   registerPort(id, el, dir) {
     const old = this.ports.get(id);
     this.ports.set(id, { id, el, dir, x: old?.x ?? 0, y: old?.y ?? 0 });
@@ -46,8 +49,14 @@ export class Tubes {
     if (Math.round(r.width) !== this.W || Math.round(r.height) !== this.H || dpr !== this.dpr) {
       this.W = Math.round(r.width); this.H = Math.round(r.height); this.dpr = dpr;
       this.canvas.width = this.W * dpr; this.canvas.height = this.H * dpr;
-      this.tubeLen = clamp(Math.max(this.W, this.H) * 0.62, 300, 760);
+      this.tubeLen = clamp(Math.max(this.W, this.H) * 0.7, 320, 820);
       for (const t of this.tubes) t.seg = this.tubeLen / (N - 1);
+    }
+    this.ob = null;
+    if (this.obstacleEl && this.obstacleEl.isConnected) {
+      const b = this.obstacleEl.getBoundingClientRect();
+      const m = 6;
+      this.ob = { x0: b.left - r.left - m, y0: b.top - r.top - m, x1: b.right - r.left + m, y1: b.bottom - r.top + m };
     }
     for (const p of this.ports.values()) {
       if (!p.el || !p.el.isConnected) { p.gone = true; continue; }
@@ -208,6 +217,17 @@ export class Tubes {
         }
         this.applyPin(P, 0, 1, pin0, t.seg);
         this.applyPin(P, N - 1, N - 2, pin1, t.seg);
+        if (this.ob) {
+          const o = this.ob;
+          for (let q = 2; q < N - 2; q++) {
+            const p = P[q];
+            if (p.x > o.x0 && p.x < o.x1 && p.y > o.y0 && p.y < o.y1) {
+              const dl = p.x - o.x0, dr = o.x1 - p.x, dt = p.y - o.y0, db = o.y1 - p.y;
+              const mn = Math.min(dl, dr, dt, db);
+              if (mn === dr) p.x = o.x1; else if (mn === dl) p.x = o.x0; else if (mn === db) p.y = o.y1; else p.y = o.y0;
+            }
+          }
+        }
         for (const p of P) {
           if (p.y > floor) { p.y = floor; p.px = p.x - (p.x - p.px) * 0.6; }
           if (p.x < 3) p.x = 3;

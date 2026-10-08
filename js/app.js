@@ -49,6 +49,9 @@ class App {
     };
     $('#resetBtn').onclick = () => this.startTask(this.taskId);
     $('#infoBtn').onclick = () => { const d = $('#infoDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', ''); };
+    $('#fsBtn').onclick = () => this.goFullscreen();
+    this.setupPwa();
+    this.buzzer.onBeep = ms => this.vibrate(ms);
 
     document.addEventListener('pointerdown', () => this.audioUnlock(), { capture: true, passive: true });
     window.addEventListener('keydown', e => this.onKey(e, true));
@@ -67,16 +70,63 @@ class App {
 
   audioUnlock() { this.buzzer.unlock(); }
 
+  vibrate(ms) {
+    if (!navigator.vibrate) return;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+    try { navigator.vibrate(ms); } catch { /* not allowed before a user gesture */ }
+  }
+
+  async goFullscreen() {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+      else if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    } catch { /* fullscreen not available (iPhone Safari) */ }
+    this.lockLandscape();
+  }
+
+  lockLandscape() {
+    try {
+      const o = screen.orientation;
+      if (o && o.lock) o.lock('landscape').catch(() => {});
+    } catch { /* not supported */ }
+  }
+
+  setupPwa() {
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+    const btn = $('#installBtn');
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      this.installEvt = e;
+      btn.hidden = false;
+    });
+    window.addEventListener('appinstalled', () => { btn.hidden = true; this.toast('App installed ✔', 'ok'); });
+    btn.onclick = async () => {
+      if (!this.installEvt) return;
+      this.installEvt.prompt();
+      try { await this.installEvt.userChoice; } catch { /* ignore */ }
+      this.installEvt = null;
+      btn.hidden = true;
+    };
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    if (standalone) {
+      $('#fsBtn').hidden = true;
+      this.lockLandscape();
+    }
+  }
+
   syncButtons() {
     $('#speedBtn').textContent = `${this.speed}×`;
     $('#soundBtn').textContent = this.buzzer.enabled ? '🔊' : '🔇';
     $('#soundBtn').classList.toggle('off', !this.buzzer.enabled);
   }
 
-  toast(msg, ok = false) {
+  toast(msg, kind = false) {
     const t = $('#toast');
     t.textContent = msg;
-    t.classList.toggle('ok', ok);
+    t.classList.toggle('ok', kind === true || kind === 'ok');
+    t.classList.toggle('bad', kind === 'bad');
     t.classList.add('show');
     clearTimeout(this.toastT);
     this.toastT = setTimeout(() => t.classList.remove('show'), 3200);
@@ -100,6 +150,7 @@ class App {
     this.lastLcd = '';
     this.tubes.reset();
     this.tubes.registerPort('meterIn', pane.querySelector('#port-meterIn'), [1, 0]);
+    this.tubes.setObstacle(pane.querySelector('#devBody'));
     this.gas.setCylinders(Cls.cylinders);
     this.tasks = TASKS[id] || [];
     this.fillTaskSelect();
@@ -120,7 +171,7 @@ class App {
     const press = () => {
       this.meter.keyDown(key);
       g.classList.add('pressed');
-      if (navigator.vibrate) { try { navigator.vibrate(8); } catch { /* ignore */ } }
+      this.vibrate(30);
     };
     const release = () => {
       if (this.latchedKeys.has(key)) return;
@@ -161,7 +212,7 @@ class App {
     if (e.repeat) return;
     this.audioUnlock();
     const g = this.keyEls[key];
-    if (down) { this.meter.keyDown(key); g && g.classList.add('pressed'); }
+    if (down) { this.meter.keyDown(key); g && g.classList.add('pressed'); this.vibrate(30); }
     else if (!this.latchedKeys.has(key)) { this.meter.keyUp(key); g && g.classList.remove('pressed'); }
   }
 
@@ -224,7 +275,7 @@ class App {
     store.set('done.' + this.modelId, [...done]);
     this.fillTaskSelect();
     $('#taskSelect').value = this.taskId;
-    this.toast('Lesson complete ✔', true);
+    this.toast('Lesson complete ✔', 'ok');
   }
 
   updateGuide(rdt, dt) {
@@ -320,7 +371,7 @@ class App {
       this.lcd.style.setProperty('--seg-ghost', this.meter.on ? 'rgba(0,0,0,0.055)' : 'rgba(0,0,0,0.03)');
     }
     const lampOn = this.meter.on && (this.meter.lamp || (this.meter.mode === 'start' && this.meter.st.i === 0) || (this.meter.mode === 'off' && false));
-    for (const l of this.lamps) l.setAttribute('fill', lampOn ? '#ff3b2f' : '#7a1c14');
+    for (const l of this.lamps) l.setAttribute('fill', lampOn ? 'rgba(255,59,47,0.92)' : l.dataset.off);
     this.lampGlow.setAttribute('opacity', lampOn ? '0.85' : '0');
   }
 }

@@ -12,9 +12,8 @@ function gasSteps(cyl) {
   return [
     { t: `Gas set-up: select the <b>${c.chip}</b> cylinder on the bench.`, sub: 'Always read the cylinder label: gas, concentration and expiry date.',
       hl: { bench: ['cyl:' + cyl] }, done: a => a.gas.cylId === cyl },
-    { t: 'Drag a tube from the <b>regulator outlet</b> to the bag <b>IN</b> port.', sub: 'Touch the small ring at the regulator outlet and drag it to the bag.',
+    { t: 'Drag a tube from the <b>regulator outlet</b> to the bag <b>IN</b> coupling.', sub: 'Touch the ring at the regulator outlet and drag. It snaps on with a click.',
       hl: { ports: ['reg', 'bagIn'] }, done: a => isBag(a.tubes.peer('reg')) },
-    { t: 'Tap the bag <b>valve</b> to open it.', hl: { bench: ['valve'] }, done: a => a.gas.bag.valve },
     { t: 'Tap the <b>regulator knob</b> to open the cylinder.', sub: 'Gas now flows into the sampling bag.', hl: { bench: ['knob'] }, done: a => a.gas.reg.open || a.gas.bag.vol > 1.5 },
     { t: 'Let the bag fill until it is nearly full (about 1.8 L)…', sub: a => `Bag: ${a.gas.bag.vol.toFixed(2)} L`, done: a => a.gas.bag.vol >= 1.75 || (!a.gas.reg.open && a.gas.bag.vol > 1.0) },
     { t: 'Bag is full: tap the <b>regulator knob</b> to close it.', sub: 'Never over-fill the bag.', hl: { bench: ['knob'] }, done: a => !a.gas.reg.open },
@@ -22,14 +21,14 @@ function gasSteps(cyl) {
 }
 
 const connectMeter = (txt) => ({
-  t: txt || `Drag a tube from the bag <b>OUT</b> port to the meter's <b>GAS IN</b>.`,
+  t: txt || `Drag a tube from the bag <b>OUT</b> coupling to the meter's <b>GAS IN</b>.`,
   sub: 'The meter pump now draws gas from the bag. Leave GAS OUT open.',
   hl: { ports: ['bagOut', 'meterIn'] }, done: a => isBag(a.tubes.peer('meterIn')),
 });
 
 const disconnectMeter = () => ({
   t: `Gas finished: pull the tube off the meter's <b>GAS IN</b> (drag it away).`,
-  sub: 'The meter then draws fresh air again. Close the bag valve when you are done.',
+  sub: 'The snap coupling seals itself. The meter now draws fresh air again.',
   hl: { ports: ['meterIn'] }, done: a => { const p = a.tubes.peer('meterIn'); return !p || p === 'free'; },
 });
 

@@ -36,6 +36,22 @@ const PUMP_FLOW = 0.75;   // L/min drawn by the detector pump
 
 const SPECIES = ['O2', 'N2', 'CH4', 'iC4H10', 'CO', 'H2S'];
 
+// snap (quick-connect) coupling welded into the bag edge; dir = -1 points left, 1 points right
+function coupler(x, y, dir) {
+  const d = dir;
+  const X = v => x + d * v;
+  const r = (a, b) => [Math.min(X(a), X(b)), Math.abs(b - a)];
+  const [bx, bw] = r(-6, 6), [sx, sw] = r(6, 20), [nx, nw] = r(20, 29);
+  let ribsS = '';
+  for (let i = 0; i < 4; i++) ribsS += `<rect x="${Math.min(X(8 + i * 3), X(9.5 + i * 3))}" y="${y - 7}" width="1.5" height="14" fill="rgba(0,0,0,.35)"/>`;
+  return `<g>
+    <rect x="${bx}" y="${y - 9}" width="${bw}" height="18" rx="2" fill="#1f2a33" stroke="#0e1418"/>
+    <rect x="${sx}" y="${y - 7}" width="${sw}" height="14" rx="2" fill="url(#metalH)" stroke="#59626a" stroke-width=".8"/>
+    ${ribsS}
+    <rect x="${nx}" y="${y - 4}" width="${nw}" height="8" rx="2" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
+  </g>`;
+}
+
 export class GasWorld {
   constructor(app, host, chipsHost, statusHost) {
     this.app = app;
@@ -46,7 +62,7 @@ export class GasWorld {
     this.cylId = null;
     this.reg = { open: false };
     this.pressure = {};
-    this.bag = { vol: 0, amt: {}, valve: false };
+    this.bag = { vol: 0, amt: {} };
     this.warnT = {};
     this.directWarned = false;
     this.hl = new Set();
@@ -64,7 +80,7 @@ export class GasWorld {
 
   reset({ cyl } = {}) {
     this.reg.open = false;
-    this.bag = { vol: 0, amt: {}, valve: false };
+    this.bag = { vol: 0, amt: {} };
     for (const id of this.cylList) this.pressure[id] = 1;
     if (cyl && this.cylList.includes(cyl)) this.cylId = cyl;
     this.build();
@@ -78,7 +94,7 @@ export class GasWorld {
     }
     this.cylId = id;
     this.build();
-    if (this.bag.vol > 0.05) this.app.toast('Cylinder changed. Empty the bag before filling it with the new gas.');
+    if (this.bag.vol > 0.05) this.app.toast('Cylinder changed. Squeeze the bag out before filling it with the new gas.');
   }
 
   // ---------------- bench drawing ----------------
@@ -106,16 +122,17 @@ export class GasWorld {
     <linearGradient id="metalH" x1="0" x2="1">
       <stop offset="0" stop-color="#7d878f"/><stop offset=".45" stop-color="#eef1f3"/><stop offset="1" stop-color="#6c767e"/>
     </linearGradient>
-    <radialGradient id="bagG" cx=".4" cy=".35" r=".8">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".75"/><stop offset=".6" stop-color="#cfdbe3" stop-opacity=".55"/>
-      <stop offset="1" stop-color="#8fa3b1" stop-opacity=".6"/>
+    <radialGradient id="bagG" cx=".38" cy=".3" r=".85">
+      <stop offset="0" stop-color="#cfe6fb" stop-opacity=".55"/><stop offset=".55" stop-color="#3f79ad" stop-opacity=".38"/>
+      <stop offset="1" stop-color="#1d3d5c" stop-opacity=".55"/>
     </radialGradient>
   </defs>
 
   <!-- floor shadow -->
-  <ellipse cx="63" cy="262" rx="44" ry="6" fill="#000" opacity=".35"/>
+  <ellipse cx="325" cy="262" rx="44" ry="6" fill="#000" opacity=".35"/>
 
   <!-- cylinder -->
+  <g transform="translate(262,0)">
   <g id="cylinder">
     <path d="M28 96 Q28 74 63 70 Q98 74 98 96 L98 250 Q98 258 90 258 L36 258 Q28 258 28 250 Z" fill="${c.body}"/>
     <path d="M28 96 Q28 74 63 70 Q98 74 98 96 L98 250 Q98 258 90 258 L36 258 Q28 258 28 250 Z" fill="url(#cylG)"/>
@@ -128,9 +145,9 @@ export class GasWorld {
   <!-- regulator -->
   <g id="regulator">
     <rect x="44" y="30" width="38" height="30" rx="5" fill="url(#metalH)" stroke="#59626a" stroke-width="1"/>
-    <rect x="80" y="38" width="22" height="9" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
-    <path d="M102 39 L114 40 L114 45 L102 46 Z" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
-    <g id="gauge">
+    <rect x="24" y="38" width="22" height="9" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
+    <path d="M12 40 L24 39 L24 46 L12 45 Z" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
+    <g id="gauge" transform="translate(54,0)">
       <circle cx="36" cy="46" r="15" fill="#e9eef1" stroke="#4a545c" stroke-width="2.5"/>
       <path d="M26 52 A11 11 0 1 1 46 52" fill="none" stroke="#2e7d32" stroke-width="2.5"/>
       <path d="M26 52 A11 11 0 0 1 25.5 42" fill="none" stroke="#c62828" stroke-width="2.5"/>
@@ -146,36 +163,27 @@ export class GasWorld {
       <text id="regLbl" x="63" y="19.5" text-anchor="middle" font-size="6.6" font-weight="800" fill="#fff" font-family="Inter, Arial, sans-serif">OFF</text>
     </g>
   </g>
-  <circle id="port-reg" cx="116" cy="42.5" r="3" fill="none"/>
+  </g>
+  <circle id="port-reg" cx="272" cy="42.5" r="3" fill="none"/>
 
-  <!-- gas sampling bag -->
+  <!-- gas sampling bag: plain tinted plastic bag with self-sealing snap couplings -->
   <g id="bagGroup">
-    <path id="bagBody" d="" fill="url(#bagG)" stroke="#8597a4" stroke-width="1.6"/>
-    <path id="bagSeam" d="" fill="none" stroke="#9fb0bc" stroke-width="5" opacity=".55"/>
-    <text x="270" y="232" text-anchor="middle" font-size="9" font-weight="700" fill="#34424c" font-family="Inter, Arial, sans-serif">GAS SAMPLING BAG · 2 L</text>
-    <text id="bagTxt" x="270" y="200" text-anchor="middle" font-size="13" font-weight="800" fill="#24323b" font-family="Inter, Arial, sans-serif"></text>
-    <text id="bagSub" x="270" y="214" text-anchor="middle" font-size="8.5" font-weight="600" fill="#34424c" font-family="Inter, Arial, sans-serif"></text>
-    <!-- valve fitting (tee) -->
-    <rect x="262" y="112" width="16" height="22" fill="url(#metalH)" stroke="#59626a" stroke-width=".8"/>
-    <rect x="236" y="104" width="68" height="10" rx="3" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
-    <path d="M236 105 L226 106 L226 112 L236 113 Z" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
-    <path d="M304 105 L314 106 L314 112 L304 113 Z" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
-    <text x="231" y="99" text-anchor="middle" font-size="7" font-weight="700" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">IN</text>
-    <text x="309" y="99" text-anchor="middle" font-size="7" font-weight="700" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">OUT</text>
-    <g id="valve" class="tap">
-      <circle cx="270" cy="100" r="20" fill="transparent"/>
-      <circle cx="270" cy="96" r="9" fill="#222a30" stroke="#0e1215" stroke-width="1.2"/>
-      <g id="valveHandle"><rect x="256" y="93" width="28" height="6" rx="3" fill="#c62828"/></g>
-      <circle cx="270" cy="96" r="2.4" fill="#ddd"/>
-    </g>
-    <text id="valveLbl" x="270" y="78" text-anchor="middle" font-size="8" font-weight="800" fill="#ff8a80" font-family="Inter, Arial, sans-serif">VALVE CLOSED</text>
+    <path id="bagBody" d="" fill="url(#bagG)" stroke="#5f86a8" stroke-width="1.4"/>
+    <path id="bagSeam" d="" fill="none" stroke="#7fa6c7" stroke-width="5" opacity=".45"/>
+    <text id="bagTxt" x="145" y="170" text-anchor="middle" font-size="13" font-weight="800" fill="#e6f0f8" font-family="Inter, Arial, sans-serif"></text>
+    <text id="bagSub" x="145" y="184" text-anchor="middle" font-size="8.5" font-weight="600" fill="#b9cfe0" font-family="Inter, Arial, sans-serif"></text>
+    <text x="100" y="246" text-anchor="middle" font-size="8.5" font-weight="700" fill="#7f97a8" font-family="Inter, Arial, sans-serif">GAS SAMPLING BAG · 2 L</text>
+    ${coupler(52, 165, -1)}
+    ${coupler(238, 165, 1)}
+    <text x="256" y="152" text-anchor="middle" font-size="8" font-weight="800" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">IN</text>
+    <text x="34" y="152" text-anchor="middle" font-size="8" font-weight="800" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">OUT</text>
     <g id="emptyBtn" class="tap">
-      <rect x="334" y="236" width="56" height="24" rx="7" fill="#232c33" stroke="#3d4b55"/>
-      <text x="362" y="252" text-anchor="middle" font-size="9.5" font-weight="700" fill="#cfd8de" font-family="Inter, Arial, sans-serif">Empty</text>
+      <rect x="172" y="234" width="62" height="24" rx="7" fill="#232c33" stroke="#3d4b55"/>
+      <text x="203" y="250" text-anchor="middle" font-size="9.5" font-weight="700" fill="#cfd8de" font-family="Inter, Arial, sans-serif">Squeeze out</text>
     </g>
   </g>
-  <circle id="port-bagIn" cx="226" cy="109" r="3" fill="none"/>
-  <circle id="port-bagOut" cx="314" cy="109" r="3" fill="none"/>
+  <circle id="port-bagIn" cx="269" cy="165" r="3" fill="none"/>
+  <circle id="port-bagOut" cx="21" cy="165" r="3" fill="none"/>
 </svg>`;
 
     this.svg = this.host.querySelector('svg');
@@ -187,21 +195,17 @@ export class GasWorld {
       bagSeam: this.svg.querySelector('#bagSeam'),
       bagTxt: this.svg.querySelector('#bagTxt'),
       bagSub: this.svg.querySelector('#bagSub'),
-      valveHandle: this.svg.querySelector('#valveHandle'),
-      valveLbl: this.svg.querySelector('#valveLbl'),
       knob: this.svg.querySelector('#knob'),
-      valve: this.svg.querySelector('#valve'),
       emptyBtn: this.svg.querySelector('#emptyBtn'),
       cylinder: this.svg.querySelector('#cylinder'),
     };
     this.el.knob.addEventListener('click', () => this.toggleRegulator());
-    this.el.valve.addEventListener('click', () => this.toggleValve());
     this.el.emptyBtn.addEventListener('click', () => this.emptyBag());
 
     const t = this.app.tubes;
-    t.registerPort('reg', this.svg.querySelector('#port-reg'), [1, 0]);
-    t.registerPort('bagIn', this.svg.querySelector('#port-bagIn'), [-1, 0]);
-    t.registerPort('bagOut', this.svg.querySelector('#port-bagOut'), [1, 0]);
+    t.registerPort('reg', this.svg.querySelector('#port-reg'), [-1, 0]);
+    t.registerPort('bagIn', this.svg.querySelector('#port-bagIn'), [1, 0]);
+    t.registerPort('bagOut', this.svg.querySelector('#port-bagOut'), [-1, 0]);
     this.render(true);
   }
 
@@ -214,14 +218,8 @@ export class GasWorld {
     }
   }
 
-  toggleValve() {
-    this.bag.valve = !this.bag.valve;
-    this.app.buzzer.click();
-  }
-
   emptyBag() {
     if (this.bag.vol < 0.01) { this.app.toast('The bag is already empty.'); return; }
-    if (!this.bag.valve) { this.app.toast('Open the bag valve first, then squeeze the bag empty.'); return; }
     this.bag.vol = 0; this.bag.amt = {};
     this.app.toast('Bag squeezed empty.', true);
   }
@@ -263,16 +261,12 @@ export class GasWorld {
     const min = dt / 60;
     if (this.reg.open && this.pressure[this.cylId] > 0) {
       if (this.isBagPort(regPeer)) {
-        if (this.bag.valve) {
-          if (this.bag.vol < BAG_CAP) {
-            const add = Math.min(FILL_FLOW * min, BAG_CAP - this.bag.vol);
-            this.addToBag(this.cyl.comp, add);
-            this.pressure[this.cylId] = Math.max(0, this.pressure[this.cylId] - add * 0.004);
-          } else {
-            this.warn('full', 'Bag is full: close the regulator now.');
-          }
+        if (this.bag.vol < BAG_CAP) {
+          const add = Math.min(FILL_FLOW * min, BAG_CAP - this.bag.vol);
+          this.addToBag(this.cyl.comp, add);
+          this.pressure[this.cylId] = Math.max(0, this.pressure[this.cylId] - add * 0.004);
         } else {
-          this.warn('valveClosed', 'Bag valve is closed: open the valve to fill the bag.');
+          this.warn('full', 'Bag is full: close the regulator now.');
         }
       } else if (regPeer !== 'meterIn') {
         this.pressure[this.cylId] = Math.max(0, this.pressure[this.cylId] - FILL_FLOW * min * 0.004);
@@ -296,7 +290,6 @@ export class GasWorld {
       return this.reg.open && this.pressure[this.cylId] > 0 ? { comp: this.cyl.comp, blocked: false } : { comp: null, blocked: true };
     }
     if (this.isBagPort(p)) {
-      if (!this.bag.valve) return { comp: null, blocked: true };
       const other = p === 'bagIn' ? 'bagOut' : 'bagIn';
       const otherPeer = this.app.tubes.peer(other);
       if (otherPeer === 'free') return { comp: AIR, blocked: false }; // pump pulls room air through the loose tube
@@ -311,15 +304,15 @@ export class GasWorld {
 
   // ---------------- per-frame visuals ----------------
   bagPath(inf) {
-    const x0 = 168, x1 = 372, yT = 132, yB = 222;
+    const x0 = 56, x1 = 234, yT = 124, yB = 206;
     const midY = (yT + yB) / 2;
-    const bulge = 2 + inf * 26;
-    const pinch = inf * 10;
-    return `M${x0 + pinch} ${yT + 4}
-      Q${(x0 + x1) / 2} ${yT - bulge} ${x1 - pinch} ${yT + 4}
-      Q${x1 + 4 + inf * 6} ${midY} ${x1 - pinch} ${yB - 4}
-      Q${(x0 + x1) / 2} ${yB + bulge * 0.8} ${x0 + pinch} ${yB - 4}
-      Q${x0 - 4 - inf * 6} ${midY} ${x0 + pinch} ${yT + 4} Z`;
+    const bulge = 1 + inf * 20;
+    const pinch = inf * 8;
+    return `M${x0 + pinch} ${yT + 3}
+      Q${(x0 + x1) / 2} ${yT - bulge} ${x1 - pinch} ${yT + 3}
+      Q${x1 + 2 + inf * 5} ${midY} ${x1 - pinch} ${yB - 3}
+      Q${(x0 + x1) / 2} ${yB + bulge} ${x0 + pinch} ${yB - 3}
+      Q${x0 - 2 - inf * 5} ${midY} ${x0 + pinch} ${yT + 3} Z`;
   }
 
   render(force = false) {
@@ -339,12 +332,8 @@ export class GasWorld {
     }
     this.el.bagTxt.textContent = this.bag.vol > 0.005 ? `${this.bag.vol.toFixed(2)} L` : 'empty';
     this.el.bagSub.textContent = this.bag.vol > 0.005 ? this.bagLabel() : 'flat — fill from the cylinder';
-    this.el.valveHandle.setAttribute('transform', `rotate(${this.bag.valve ? 90 : 0} 270 96)`);
-    this.el.valveHandle.firstElementChild.setAttribute('fill', this.bag.valve ? '#2e9d4f' : '#c62828');
-    this.el.valveLbl.textContent = this.bag.valve ? 'VALVE OPEN' : 'VALVE CLOSED';
-    this.el.valveLbl.setAttribute('fill', this.bag.valve ? '#7dff9a' : '#ff8a80');
 
-    for (const [k, node] of Object.entries({ knob: this.el.knob, valve: this.el.valve, empty: this.el.emptyBtn, cylinder: this.el.cylinder })) {
+    for (const [k, node] of Object.entries({ knob: this.el.knob, empty: this.el.emptyBtn, cylinder: this.el.cylinder })) {
       node.classList.toggle('hl-target', this.hl.has(k));
     }
     this.chipsHost.querySelectorAll('.cyl-chip').forEach(b => {
@@ -355,7 +344,7 @@ export class GasWorld {
     const regPeer = this.app.tubes.peer('reg');
     const status = [
       `Cylinder: <b>${esc(this.cyl.title)}</b>`,
-      `Regulator <b>${this.reg.open ? 'OPEN' : 'closed'}</b>${this.reg.open && this.isBagPort(regPeer) && this.bag.valve ? ' · filling' : ''}`,
+      `Regulator <b>${this.reg.open ? 'OPEN' : 'closed'}</b>${this.reg.open && this.isBagPort(regPeer) ? ' · filling bag' : ''}`,
     ];
     this.statusHost.innerHTML = status.join(' · ');
   }

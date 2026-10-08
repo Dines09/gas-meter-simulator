@@ -169,13 +169,18 @@ export class GX8000 extends MeterBase {
   k_pw(k) {
     const st = this.st;
     if (st.phase === 'err') return;
+    if (k === 'enter') this.buzzer.blip();
     if (k === 'up') st.d[st.pos] = (st.d[st.pos] + 1) % 10;
     if (k === 'down') st.d[st.pos] = (st.d[st.pos] + 9) % 10;
     if (k === 'enter') {
       st.pos++;
       if (st.pos >= 4) {
         if (st.d.join('') === '0008') { this.beep(); this.go('menu', { kind: 'maint', i: 0 }); }
-        else { st.phase = 'err'; st.t = 0; }
+        else {
+          st.phase = 'err'; st.t = 0;
+          this.alarmTest = { level: 0, pattern: 'fault' };
+          if (this.app.toast) this.app.toast(`Wrong password (${st.d.join('')}). Enter 0 0 0 8 again.`, 'bad');
+        }
       }
     }
   }
@@ -384,7 +389,7 @@ export class GX8000 extends MeterBase {
         if (this.idle > 20 && this.pumpOn && !this.alarmTest) this.go('detect');
         break;
       case 'pw':
-        if (st.phase === 'err') { st.t += rdt; if (st.t > 1.4) { st.phase = null; st.d = [0, 0, 0, 0]; st.pos = 0; } }
+        if (st.phase === 'err') { st.t += rdt; if (st.t > 2.0) { this.alarmTest = null; st.phase = null; st.d = [0, 0, 0, 0]; st.pos = 0; } }
         break;
       case 'autocal':
         st.t += rdt;
@@ -500,8 +505,8 @@ export class GX8000 extends MeterBase {
       case 'disp': return this.dispFrame(F);
       case 'menu': F.text = this.items()[st.i]; return F;
       case 'pw':
-        if (st.phase === 'err') { F.u1 = 'Err '; F.text = 'PASSWORD'; return F; }
-        F.u2 = st.d.map((d, i) => (i === st.pos && !this.blinkOn(2) ? ' ' : String(d))).join('');
+        if (st.phase === 'err') { F.mid = this.blinkOn(2) ? 'FAiL' : ''; F.text = 'PASSWORD'; return F; }
+        F.mid = st.d.map((d, i) => (i === st.pos && !this.blinkOn(2) ? ' ' : String(d))).join('');
         F.text = 'PASSWORD';
         return F;
       case 'autocal': return this.autoFrame(F);
@@ -783,8 +788,11 @@ export class GX8000 extends MeterBase {
     if (L('PPM2')) s += text(214, 118, 7, 'ppm', { italic: true });
 
     const D = (x, y, str) => draw7(x, y, 30, all ? '8.8.8.8.' : str, { pitch: 24, n: 4, ghost: true });
-    s += D(10, 25, F.u1);
-    s += D(132, 25, F.u2);
+    if (F.mid != null && !all) s += draw7(70, 25, 30, F.mid, { pitch: 24, n: 4, ghost: true, align: 'left' });
+    else {
+      s += D(10, 25, F.u1);
+      s += D(132, 25, F.u2);
+    }
     if (F.lAll && !all) {
       s += draw7(10, 78, 30, F.lAll.slice(0, 4), { pitch: 24, n: 4, ghost: true, align: 'left' });
       s += draw7(132, 78, 30, F.lAll.slice(4).padEnd(4, ' '), { pitch: 24, n: 4, ghost: true, align: 'left' });
