@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#14181c">
+<meta name="description" content="Hands-on training simulator for Riken Keiki portable gas detectors (GX-8000, RX-8000, GX-9000): start-up, air calibration, bump test, span calibration, alarm test and alarm settings.">
+<title>Gas Detector Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='10' width='52' height='44' rx='10' fill='%23c8261d'/%3E%3Crect x='16' y='18' width='32' height='22' rx='3' fill='%23b8c2b2'/%3E%3Ccircle cx='20' cy='47' r='3' fill='%23111'/%3E%3Ccircle cx='44' cy='47' r='3' fill='%23111'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <span class="brand-text">Gas Detector Trainer</span>
+    </div>
+    <label class="model-pick">
+      <span class="sr">Detector model</span>
+      <select id="modelSelect" aria-label="Detector model"></select>
+    </label>
+    <button id="infoBtn" class="icon-btn" title="About the models" aria-label="About the models">i</button>
+  </header>
+
+  <section class="controls">
+    <select id="taskSelect" aria-label="Task"></select>
+    <button id="speedBtn" class="chip-btn" title="Simulation speed">2×</button>
+    <button id="soundBtn" class="chip-btn" title="Buzzer sound">🔊</button>
+    <button id="resetBtn" class="chip-btn" title="Restart task">↺</button>
+  </section>
+
+  <section id="guide" class="guide">
+    <div class="guide-head">
+      <span id="guideMode" class="guide-mode">LEARN</span>
+      <span id="guideCount" class="guide-count"></span>
+      <div class="guide-progress"><div id="guideBar"></div></div>
+    </div>
+    <div id="guideText" class="guide-text"></div>
+    <div id="guideSub" class="guide-sub"></div>
+  </section>
+
+  <main id="stage">
+    <div id="meterPane" class="meter-pane"></div>
+    <div id="benchPane" class="bench-pane">
+      <div id="cylChips" class="cyl-chips"></div>
+      <div id="bench" class="bench"></div>
+      <div id="benchStatus" class="bench-status"></div>
+    </div>
+    <canvas id="tubeCanvas"></canvas>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </main>
+</div>
+
+<dialog id="infoDlg" class="info-dlg">
+  <form method="dialog">
+    <h2>Which detector is which?</h2>
+    <div class="info-body">
+      <table>
+        <thead><tr><th>Model</th><th>Gases shown</th><th>Typical use on ships</th></tr></thead>
+        <tbody>
+          <tr><td><b>GX-8000</b><br><small>simulated</small></td><td>CH₄/HC %LEL · O₂ % · CO ppm · H₂S ppm (4-gas, pump)</td><td>Enclosed-space entry checks, general 4-gas monitoring. Segment LCD, 4 keys.</td></tr>
+          <tr><td><b>RX-8000</b><br><small>simulated</small></td><td>HC %LEL ⇄ vol% (isobutane, infrared) · O₂ %</td><td>Tankers: cargo tanks and inert-gas (low O₂) atmospheres. Auto-range to vol%. Gas alarms are optional (often “NO ALARM”).</td></tr>
+          <tr><td><b>GX-9000</b><br><small>simulated</small></td><td>O₂ % · H₂S ppm · CO ppm · CH₄ %LEL (+ up to 2 extra sensors)</td><td>Newer 4–6 gas pump detector with dot-matrix screen, menu-based User mode, built-in bump test.</td></tr>
+          <tr><td>RX-8500</td><td>CH₄ %LEL/vol% · O₂ · CO · CO₂</td><td>LNG carriers. Same body as RX-8000 (not simulated yet).</td></tr>
+          <tr><td>RX-8700</td><td>HC %LEL/vol% · O₂ · H₂S (low + high)</td><td>Crude oil tankers. Same body as RX-8000 (not simulated yet).</td></tr>
+          <tr><td>“RX-9000”</td><td colspan="2">No such Riken Keiki model was found. The current generation is the GX-9000 series.</td></tr>
+        </tbody>
+      </table>
+      <h3>How to use this trainer</h3>
+      <ul>
+        <li>Choose a <b>task</b> to get step-by-step guidance, or <b>Free practice</b> to explore on your own.</li>
+        <li>Press the meter keys like the real ones. <b>Hold</b> a key for long-press. For two-key combos, use two fingers (phone) or the keyboard: <kbd>↑</kbd>/<kbd>Q</kbd> = ▲, <kbd>↓</kbd>/<kbd>A</kbd> = ▼, <kbd>D</kbd> = DISPLAY/ESC, <kbd>Enter</kbd>/<kbd>E</kbd> = POWER/ENTER. With a mouse, <b>Shift + click</b> latches a key down.</li>
+        <li>Drag tubes from the <b>regulator outlet</b> to the <b>bag</b>, and from the bag to the meter's <b>GAS IN</b>. Drag a tube end away to disconnect it.</li>
+        <li>Tap the regulator knob to open or close it, and the bag tap to open or close the bag.</li>
+      </ul>
+      <p class="disclaimer">Unofficial training aid, made from the published operating manuals. Not affiliated with or endorsed by RIKEN KEIKI Co., Ltd. Names of products are trademarks of their owners. Always follow the official manual and your company's procedures on board.</p>
+    </div>
+    <button class="dlg-close" value="close">Close</button>
+  </form>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

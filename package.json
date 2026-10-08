@@ -1,0 +1,10 @@
+{
+  "name": "gas-meter-simulator",
+  "private": true,
+  "type": "module",
+  "description": "Training simulator for Riken Keiki portable gas detectors (GX-8000, RX-8000, GX-9000).",
+  "scripts": {
+    "test": "node tests/meters.test.js",
+    "start": "npx --yes serve -l 8080 ."
+  }
+}
