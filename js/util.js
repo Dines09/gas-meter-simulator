@@ -30,6 +30,9 @@ export const store = {
   set(key, val) {
     try { localStorage.setItem('gdt.' + key, JSON.stringify(val)); } catch { /* storage unavailable */ }
   },
+  del(key) {
+    try { localStorage.removeItem('gdt.' + key); } catch { /* storage unavailable */ }
+  },
 };
 
 export function esc(s) {

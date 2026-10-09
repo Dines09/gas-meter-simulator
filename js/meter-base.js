@@ -2,6 +2,9 @@ import { clamp, roundTo, fmt } from './util.js';
 
 export const AIR = Object.freeze({ O2: 20.9, N2: 78.1, CH4: 0, iC4H10: 0, CO: 0, H2S: 0 });
 
+// Natural zero drift between uses (sensor units): a few ppm / a few tenths of a %.
+const ZERO_DRIFT = { CO: [2, 4], H2S: [0.5, 1.5], LEL: [1, 3], HC: [1, 2.5], HCV: [0.5, 1], O2: [-0.4, -0.2] };
+
 // LEL values (vol%) used for %LEL conversion
 const LEL_CH4 = 5.0;
 const LEL_IC4 = 1.8;
@@ -65,8 +68,9 @@ export class Sensor {
     const r = this.raw;
     if (this.isO2) {
       if (r < 20.9 - this.airTol || r > 20.9 + this.airTol) return false;
-      this.gain = 20.9 / r;
-      this.off = 0;
+      // keep the zero point (from an N2 span cal), move only the 20.9 % point
+      const g = (20.9 - this.off) / r;
+      if (!(g > 0.5 && g < 2)) { this.gain = 20.9 / r; this.off = 0; } else this.gain = g;
       return true;
     }
     if (Math.abs(r * this.gain) > this.airTol) return false;
@@ -165,6 +169,8 @@ export class MeterBase {
     this.clockOffset = 0;
     this.confirmBeep = true;
     this.sensors = [];
+    // settings a real meter keeps in memory when switched off (models add their own)
+    this.persist = ['clockOffset', 'stationId', 'confirmBeep'];
   }
 
   // ---------- helpers ----------
@@ -319,7 +325,49 @@ export class MeterBase {
     for (const s of this.sensors) s.resetExposure();
   }
 
-  // Simulated start-up drift so calibration has something to correct.
+  // ---------- memory: calibration, alarm setpoints and settings survive power-off ----------
+  saveState() {
+    const out = { cal: {}, alarm: {}, set: {}, mem: [] };
+    for (const s of this.sensors) {
+      out.cal[s.id] = { gain: s.gain, off: s.off };
+      if (s.alarm) out.alarm[s.id] = { ...s.alarm };
+    }
+    for (const k of this.persist) out.set[k] = this[k];
+    out.mem = this.mem.map(e => ({ t: +e.t, vals: e.vals }));
+    return out;
+  }
+
+  loadState(st) {
+    if (!st) return;
+    for (const s of this.sensors) {
+      const c = st.cal && st.cal[s.id];
+      if (c && Number.isFinite(c.gain) && Number.isFinite(c.off)) { s.gain = c.gain; s.off = c.off; }
+      const a = st.alarm && st.alarm[s.id];
+      if (a && s.alarm) Object.assign(s.alarm, a);
+    }
+    for (const k of this.persist) {
+      if (!st.set || !(k in st.set)) continue;
+      const v = st.set[k];
+      if (v && typeof v === 'object' && this[k] && typeof this[k] === 'object') Object.assign(this[k], v);
+      else this[k] = v;
+    }
+    if (Array.isArray(st.mem)) this.mem = st.mem.map(e => ({ t: new Date(e.t), vals: e.vals }));
+  }
+
+  // Small natural zero drift (a few ppm / tenths of a %) on top of the current calibration.
+  // Span (gain) calibration is kept; a fresh air calibration removes it.
+  naturalDrift() {
+    for (const s of this.sensors) {
+      const [lo, hi] = ZERO_DRIFT[s.id] || [0, 0];
+      const d = lo + Math.random() * (hi - lo);
+      const r = s.raw;
+      if (s.isO2) {
+        if (r > 1) s.gain = (20.9 + d - s.off) / r;
+      } else s.off = -r * s.gain + d;
+    }
+  }
+
+  // Factory state: close to correct, with the small error of a meter fresh out of the box.
   applyDrift(scenario = 'normal') {
     for (const s of this.sensors) {
       const d = (this.drift && this.drift[scenario] && this.drift[scenario][s.id]) || (this.drift && this.drift.normal[s.id]) || { gain: 1, off: 0 };

@@ -22,7 +22,7 @@ export class RX8000 extends MeterBase {
     this.range = 'LEL';
     this.stationId = 0;
     this.drift = {
-      normal: { HC: { gain: 0.9, off: 1.5 }, HCV: { gain: 1.08, off: 0.5 }, O2: { gain: 0.986, off: 0 } },
+      normal: { HC: { gain: 0.96, off: 1.5 }, HCV: { gain: 1.03, off: 0.5 }, O2: { gain: 0.986, off: 0 } },
     };
     this.applyDrift();
     this.backlight = 0;

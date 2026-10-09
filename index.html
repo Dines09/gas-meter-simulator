@@ -84,6 +84,7 @@
       <li><b>Keys</b>: tap, or hold for a long press. Use two fingers for combos.</li>
       <li><b>Tubes</b>: drag from the regulator to the bag, then from the bag to <b>GAS IN</b>. Drag an end away to disconnect.</li>
       <li><b>Regulator</b>: tap the knob to open or close it.</li>
+      <li><b>Cylinder</b>: tap the cylinder to change its gases. A changed cylinder turns red.</li>
       <li><b>⛶ Meter view</b>: the button on the meter shows only the meter, full screen. Tap it again to go back.</li>
     </ul>
 
@@ -93,6 +94,10 @@
     <h3>Keyboard</h3>
     <p class="small"><kbd>Q</kbd> ▲ &nbsp; <kbd>A</kbd> ▼ &nbsp; <kbd>D</kbd> DISPLAY/ESC &nbsp; <kbd>Enter</kbd> POWER/ENTER &nbsp;·&nbsp; Shift + click holds a key</p>
 
+    <h3>Meter memory</h3>
+    <p class="small">Like the real meter, it keeps its calibration, alarm setpoints and settings when switched off and when the app is closed.</p>
+    <button id="factoryBtn" class="factory-btn" type="button">↺ Reset meter to factory settings</button>
+
     <div class="about">
       <div>This app is developed by <b>ETO</b></div>
       <a href="tel:+919991994468">📞 +91 99919 94468</a>
@@ -100,6 +105,20 @@
     <p class="disclaimer">Unofficial training aid based on the published operating manuals. Always follow the official manual and your company SMS on board.</p>
   </div>
   <form method="dialog" class="dlg-foot"><button class="dlg-close" value="close">✕ Close</button></form>
+</dialog>
+
+<dialog id="cylDlg" class="info-dlg cyl-dlg">
+  <div class="dlg-scroll">
+    <h2 id="cylTitle">Cylinder</h2>
+    <p class="small muted">Enter the concentrations printed on the label. Nitrogen (N₂) fills the rest.</p>
+    <div id="cylFields" class="cyl-grid"></div>
+    <div id="cylMsg" class="cyl-msg"></div>
+  </div>
+  <div class="dlg-foot cyl-foot">
+    <button type="button" id="cylDefault" class="btn-2">Default values</button>
+    <button type="button" id="cylCancel" class="btn-2">Cancel</button>
+    <button type="button" id="cylSave" class="dlg-close">Save</button>
+  </div>
 </dialog>
 
 <script type="module" src="js/app.js"></script>

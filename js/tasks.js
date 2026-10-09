@@ -1,10 +1,33 @@
 // Learning-mode lessons. Each step: { t, sub, hl: {keys, bench, ports}, done(app), ack, minSim, final }
 import { CYLINDERS } from './gasworld.js';
+import { fmt, roundTo } from './util.js';
 
 const k = s => `<span class="k">${s}</span>`;
 const isBag = p => p === 'bagIn' || p === 'bagOut';
 const M = a => a.meter;
 const st = a => a.meter.st;
+
+// Live values, so the guide matches the meter's saved settings and the (possibly edited) cylinders.
+const unitOf = s => (s.unit === '%' ? ' %' : ` ${s.unit}`);
+const spanText = a => M(a).sensors.filter(s => M(a).span && M(a).span[s.id] != null)
+  .map(s => `${s.name} ${fmt(M(a).span[s.id], s.res)}`).join(' · ');
+const alarmText = a => M(a).sensors.filter(s => s.alarm).map(s => (s.alarm.type === 'L-H'
+  ? `${s.name} ${fmt(s.alarm.w, s.res)} low / ${fmt(s.alarm.a, s.res)} high`
+  : `${s.name} ${fmt(s.alarm.w, s.res)}/${fmt(s.alarm.a, s.res)}${unitOf(s)}`)).join(' · ');
+// what the meter should read on this cylinder = the value printed on its label
+const cylVal = (a, cyl, id) => { const s = M(a).S(id); return roundTo(Math.min(s.respond(a.gas.compOf(cyl)), s.max), s.res); };
+const alarmedText = a => {
+  const m = M(a), names = lvl => m.sensors.filter(s => m.latched[s.id] === lvl).map(s => s.name);
+  const al = [...names(2), ...names(3)], wr = names(1);
+  return [al.length ? `<b>${al.join(', ')}</b> reached ALARM` : '', wr.length ? `<b>${wr.join(', ')}</b> reached WARNING` : '']
+    .filter(Boolean).join('; ') + '.';
+};
+// GX-8000 ONE CAL: the gas the user chose (CH4 → O2 → H2S → CO)
+const GX_SEL = ['LEL', 'O2', 'H2S', 'CO'];
+const oneS = a => {
+  if (M(a).mode === 'onecal' && st(a).sel < 4) a.oneGas = GX_SEL[st(a).sel];
+  return M(a).S(a.oneGas || 'CO');
+};
 
 // ---------------------------------------------------------------- shared gas-handling steps
 function gasSteps(cyl) {
@@ -49,16 +72,16 @@ const GX8000 = [
       { t: 'Self-test: all LCD segments light up, the alarm lamps flash and the buzzer beeps once.', sub: 'Check that no segment is missing.', done: a => M(a).mode !== 'start' || st(a).i >= 1 },
       { t: 'Date / time, then the battery voltage (bAtt.) are shown.', sub: 'Make sure the battery is charged.', done: a => M(a).mode !== 'start' || st(a).i >= 3 },
       { t: 'Gas names: CH4 · O2 · CO · H2S, then the full scale (F.S.).', done: a => M(a).mode !== 'start' || st(a).i >= 5 },
-      { t: 'Alarm setpoints: <b>WARNING</b> (1st) → <b>ALARM</b> (2nd) → STEL → TWA.', sub: 'CH4 10/50 %LEL · O2 19.5/23.5 % · CO 25/50 ppm · H2S 5/30 ppm', done: a => M(a).mode !== 'start' || st(a).i >= 9 },
+      { t: 'Alarm setpoints: <b>WARNING</b> (1st) → <b>ALARM</b> (2nd) → STEL → TWA.', sub: alarmText, done: a => M(a).mode !== 'start' || st(a).i >= 9 },
       { t: 'Station ID, then detection mode starts (beep-beep)…', done: a => M(a).mode === 'detect' },
       final('Detection mode ✔ — in fresh air O2 should be 20.9 % and the other gases 0.', 'Readings not right? Do a fresh air calibration (AIR CAL) — next lesson.'),
     ],
   },
   {
-    id: 'air', title: 'Fresh air calibration (AIR CAL)', setup: { power: 'on' },
+    id: 'air', title: 'Fresh air calibration (AIR CAL)', setup: { power: 'on', cal: 'drift' },
     steps: [
       { t: 'Make sure the meter is in <b>clean air</b>: nothing connected to GAS IN.', ack: true },
-      { t: 'Look at the display: O2 is about 20.5 % and CH4/CO are not 0 — the sensors have drifted.', ack: true },
+      { t: 'Look at the display: O2 is a little below 20.9 % and CH4 / CO show a few counts — normal sensor drift.', ack: true },
       { t: `Press and <b>hold</b> ${k('▲/AIR')}…`, sub: 'The display shows “Air CAL — HOLD AIR”.', hl: { keys: ['up'] }, done: a => M(a).mode === 'air' },
       { t: `Keep holding ${k('▲/AIR')} until <b>RELEASE</b> appears on the bottom line.`, hl: { keys: ['up'] }, done: a => M(a).mode !== 'air' || ['release', 'adj', 'end'].includes(st(a).phase) },
       { t: `Now <b>let go</b> of ${k('▲/AIR')}.`, done: a => M(a).mode !== 'air' || ['adj', 'end'].includes(st(a).phase) },
@@ -88,7 +111,7 @@ const GX8000 = [
       { t: `Hold ${k('▼/RESET')} and, while holding it, press ${k('DISPLAY')}. Release when it beeps.`, sub: 'This opens the Calibration mode menu (AIR CAL).', hl: { keys: ['down', 'mode'] }, done: a => M(a).mode === 'menu' },
       { t: `Press ${k('▲/AIR')} until the bottom line shows <b>BUMP</b>.`, sub: 'AIR CAL → AUTO CAL → ONE CAL → BUMP', hl: { keys: ['up'] }, done: a => M(a).mode === 'menu' && M(a).items()[st(a).i] === 'BUMP' },
       { t: `Press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'bump' },
-      { t: 'The test-gas values are shown: CH4 50 · O2 12.0 · CO 50 · H2S 25.0 (test time 30 s).', sub: 'These must match the cylinder label.', ack: true },
+      { t: a => `The test-gas values are shown: ${spanText(a)} (test time ${M(a).bumpSet.time} s).`, sub: 'These must match the cylinder label.', ack: true },
       ...gasSteps('MIX4'),
       connectMeter(),
       { t: `Press ${k('POWER/ENTER')} to start the bump test.`, sub: 'The bottom line alternates BUMP ⇄ APPLY with a countdown.', hl: { keys: ['enter'] }, done: a => M(a).mode === 'bump' && st(a).phase !== 'conc' },
@@ -107,7 +130,7 @@ const GX8000 = [
       { t: `First a fresh air calibration: with <b>AIR CAL</b> shown, press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'air' },
       { t: `Hold ${k('▲/AIR')} until <b>RELEASE</b> appears, then let go.`, hl: { keys: ['up'] }, done: a => M(a).mode === 'menu' && Math.abs(M(a).S('O2').value() - 20.9) < 0.15 },
       { t: `Press ${k('▲/AIR')} to show <b>AUTO CAL</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'autocal' },
-      { t: 'Span-gas values: CH4 50 · O2 12.0 · CO 50 · H2S 25.0. They must match the cylinder label.', sub: `If not, hold ▼ and press DISPLAY to edit them.`, ack: true },
+      { t: a => `Span-gas values: ${spanText(a)}. They must match the cylinder label.`, sub: `If not, hold ▼ and press DISPLAY to edit them.`, ack: true },
       { t: `Press ${k('DISPLAY')}: AUTO CAL blinks and live readings are shown.`, hl: { keys: ['mode'] }, done: a => M(a).mode === 'autocal' && st(a).phase === 'supply' },
       ...gasSteps('MIX4'),
       connectMeter(),
@@ -120,31 +143,41 @@ const GX8000 = [
     ],
   },
   {
-    id: 'onecal', title: 'Single gas calibration (ONE CAL – CO)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'onecal', title: 'Single gas calibration (ONE CAL – any gas)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
     steps: [
       { t: `Hold ${k('▼/RESET')} and press ${k('DISPLAY')} → Calibration mode.`, hl: { keys: ['down', 'mode'] }, done: a => M(a).mode === 'menu' },
       { t: `Press ${k('▲/AIR')} until <b>ONE CAL</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'onecal' },
-      { t: `Press ${k('▲/AIR')} to choose the gas until the CO position shows <b>---</b>.`, sub: 'Order: CH4 → O2 → H2S → CO → ESCAPE', hl: { keys: ['up'] }, done: a => M(a).mode === 'onecal' && st(a).sel === 3 },
-      { t: `Press ${k('POWER/ENTER')}: the CO reading blinks, waiting for gas.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' },
+      { t: `Choose the gas you want to calibrate with ${k('▲/AIR')} / ${k('▼/RESET')} — its position shows <b>---</b>. Then press ${k('POWER/ENTER')}.`,
+        sub: a => `Order: CH4 → O2 → H2S → CO → ESCAPE${M(a).mode === 'onecal' && st(a).sel < 4 ? ` · selected: ${oneS(a).name}` : ''}`,
+        hl: { keys: ['up', 'down', 'enter'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && st(a).sel < 4 && !!oneS(a) },
+      { t: a => `The <b>${oneS(a).name}</b> reading blinks, waiting for gas.`, sub: 'To pick another gas: DISPLAY goes back to the gas choice.', ack: true },
       ...gasSteps('MIX4'),
       connectMeter(),
-      waitStable(60, 'CO reading'),
-      { t: `Use ${k('▲/AIR')} / ${k('▼/RESET')} to set the CO reading to the cylinder value: <b>50 ppm</b>.`, sub: a => `Now showing ${M(a).mode === 'onecal' && st(a).phase === 'adjust' ? M(a).oneCalDisplay() : '-'} ppm`, hl: { keys: ['up', 'down'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && M(a).oneCalDisplay() === 50 },
+      waitStable(60, 'reading'),
+      { t: a => {
+          const s = oneS(a), v = cylVal(a, 'MIX4', s.id);
+          return v > 0 || s.isO2
+            ? `Use ${k('▲/AIR')} / ${k('▼/RESET')} to set the <b>${s.name}</b> reading to the cylinder value: <b>${fmt(v, s.res)}${unitOf(s)}</b>.`
+            : `This cylinder has no ${s.name}, so it cannot be calibrated with it. Tap the cylinder to check its label.`;
+        },
+        sub: a => (M(a).mode === 'onecal' && st(a).phase === 'adjust' ? `Now showing ${fmt(M(a).oneCalDisplay(), oneS(a).res)}${unitOf(oneS(a))}` : ''),
+        hl: { keys: ['up', 'down'] },
+        done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && M(a).oneCalDisplay() === cylVal(a, 'MIX4', oneS(a).id) },
       { t: `Press ${k('POWER/ENTER')} to adjust → END.`, hl: { keys: ['enter'] }, done: a => M(a).mode !== 'onecal' || st(a).phase !== 'adjust' },
       disconnectMeter(),
       { t: `Press ${k('▲/AIR')} until <b>ESCAPE</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'menu' },
       { t: `Press ${k('▲/AIR')} until <b>NORMAL</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'detect' },
-      final('CO span adjusted ✔ — repeat the same way for any other gas.'),
+      final(a => `${oneS(a).name} span adjusted ✔ — the new calibration stays in the meter. Repeat the same way for any other gas.`),
     ],
   },
   {
-    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'perfect', cyl: 'N2' },
+    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
     steps: [
-      { t: 'Alarm setpoints: CH4 10/50 %LEL · O2 19.5 low / 23.5 high · CO 25/50 ppm · H2S 5/30 ppm.', sub: 'You will expose the meter to test gas in normal detection mode.', ack: true },
+      { t: a => `Alarm setpoints: ${alarmText(a)}.`, sub: 'You will expose the meter to test gas in normal detection mode.', ack: true },
       ...gasSteps('MIX4'),
       connectMeter(),
-      { t: 'Watch the readings rise: first <b>WARNING</b>, then <b>ALARM</b>. Lamps flash, buzzer sounds, alarming values blink.', done: a => M(a).topAlarm() >= 2 },
-      { t: 'CH4 50 and CO 50 reach ALARM; H2S 25 and O2 12 % (low) reach WARNING.', sub: 'Gas alarms are self-latching.', ack: true },
+      { t: 'Watch the readings rise: first <b>WARNING</b>, then <b>ALARM</b>. Lamps flash, buzzer sounds, alarming values blink.', done: a => M(a).topAlarm() >= 2 || (M(a).topAlarm() >= 1 && a.stepSim > 45) },
+      { t: alarmedText, sub: 'Gas alarms are self-latching.', ack: true },
       disconnectMeter(),
       { t: 'Wait in fresh air until the readings return to normal (O2 20.9, others 0).', done: a => M(a).sensors.every(s => s.alarmLevel(s.reading()) === 0) },
       { t: `The alarm is still latched. Press ${k('▼/RESET')} to reset it.`, hl: { keys: ['down'] }, done: a => M(a).topAlarm() === 0 },
@@ -158,11 +191,11 @@ const GX8000 = [
       { t: `Enter the password <b>0 0 0 8</b>: ${k('▲/AIR')}/${k('▼/RESET')} change the blinking digit, ${k('POWER/ENTER')} moves to the next.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'menu' },
       { t: `Maintenance menu (DATE). Press ${k('▲/AIR')} until <b>ALARM-P</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'alarmset' },
       { t: `Press ${k('▲/AIR')} until the CO position shows <b>---</b>, then ${k('POWER/ENTER')}.`, sub: 'Order: CH4 → O2 → H2S → CO → ESCAPE', hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'alarmset' && st(a).phase === 'edit' && st(a).sel === 3 },
-      { t: `WARNING blinks (25 ppm). Use ${k('▲/AIR')} to set <b>30</b> ppm, then ${k('POWER/ENTER')}.`, sub: 'Only change setpoints as required by your company SMS.', hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'alarmset' && (st(a).phase !== 'edit' || st(a).fi >= 1) },
+      { t: a => `WARNING blinks (now ${M(a).S('CO').alarm.w} ppm). Use ${k('▲/AIR')} / ${k('▼/RESET')} to set the new value (e.g. ${M(a).S('CO').alarm.w + 5} ppm), then ${k('POWER/ENTER')}.`, sub: 'Only change setpoints as required by your company SMS. The meter keeps the new value.', hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'alarmset' && (st(a).phase !== 'edit' || st(a).fi >= 1) },
       { t: `ALARM, STEL and TWA follow — press ${k('POWER/ENTER')} for each to keep them.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'alarmset' && st(a).phase !== 'edit' },
       { t: `END. Press ${k('▲/AIR')} until <b>ESCAPE</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'menu' },
       { t: `Press ${k('▲/AIR')} until <b>START</b>, then ${k('POWER/ENTER')} — the meter starts up.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'start' || M(a).mode === 'detect' },
-      { t: 'During start-up check the WARNING screen: CO now shows 30.', done: a => M(a).mode === 'detect' },
+      { t: a => `During start-up check the WARNING screen: CO now shows ${M(a).S('CO').alarm.w}.`, done: a => M(a).mode === 'detect' },
       final(a => `New CO WARNING setpoint: ${M(a).S('CO').alarm.w} ppm ✔`),
     ],
   },
@@ -189,9 +222,9 @@ const RX8000 = [
     ],
   },
   {
-    id: 'air', title: 'Fresh air calibration (AIR CAL)', setup: { power: 'on' },
+    id: 'air', title: 'Fresh air calibration (AIR CAL)', setup: { power: 'on', cal: 'drift' },
     steps: [
-      { t: 'In clean air the meter shows HC above 0 and O2 about 20.6 % — it needs an air calibration.', ack: true },
+      { t: 'In clean air the meter shows HC slightly above 0 and O2 a little below 20.9 % — normal drift, it needs an air calibration.', ack: true },
       { t: `Press and <b>hold</b> ${k('▲/AIR')}: the display shows <b>AdJ – HOLD AIR</b>.`, hl: { keys: ['up'] }, done: a => M(a).mode === 'air' },
       { t: `Keep holding until <b>RELEASE</b> appears, then let go.`, hl: { keys: ['up'] }, done: a => M(a).mode === 'detect' && Math.abs(M(a).S('O2').value() - 20.9) < 0.15 },
       final('Air calibration done ✔ — HC 0.0 %LEL, O2 20.9 %.'),
@@ -205,7 +238,7 @@ const RX8000 = [
       ...gasSteps('HC50'),
       connectMeter(),
       waitStable(60, 'HC reading'),
-      { t: `Use ${k('▲/AIR')} / ${k('▼/PUMP')} to set the reading to <b>50.0 %LEL</b> (cylinder value).`, sub: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' ? `Now showing ${M(a).oneCalDisplay().toFixed(1)} %LEL` : '', hl: { keys: ['up', 'down'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && M(a).oneCalDisplay() === 50 },
+      { t: a => `Use ${k('▲/AIR')} / ${k('▼/PUMP')} to set the reading to <b>${fmt(cylVal(a, 'HC50', 'HC'), 0.1)} %LEL</b> (cylinder value).`, sub: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' ? `Now showing ${M(a).oneCalDisplay().toFixed(1)} %LEL` : '', hl: { keys: ['up', 'down'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && M(a).oneCalDisplay() === cylVal(a, 'HC50', 'HC') },
       { t: `Press ${k('POWER/ENTER')} → END.`, hl: { keys: ['enter'] }, done: a => M(a).mode !== 'onecal' || st(a).phase !== 'adjust' },
       disconnectMeter(),
       { t: `Press ${k('▲/AIR')} until <b>ESCAPE</b>, then ${k('POWER/ENTER')} → detection mode.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'detect' },
@@ -220,7 +253,7 @@ const RX8000 = [
       ...gasSteps('N2'),
       connectMeter(),
       waitStable(45, 'O2 reading'),
-      { t: `Set the O2 reading to <b>0.0 %</b> with ${k('▼/PUMP')} / ${k('▲/AIR')}.`, sub: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' ? `Now showing ${M(a).oneCalDisplay().toFixed(1)} %` : '', hl: { keys: ['down', 'up'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && M(a).oneCalDisplay() === 0 },
+      { t: a => `Set the O2 reading to <b>${fmt(cylVal(a, 'N2', 'O2'), 0.1)} %</b> (cylinder value) with ${k('▼/PUMP')} / ${k('▲/AIR')}.`, sub: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' ? `Now showing ${M(a).oneCalDisplay().toFixed(1)} %` : '', hl: { keys: ['down', 'up'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && M(a).oneCalDisplay() === cylVal(a, 'N2', 'O2') },
       { t: `Press ${k('POWER/ENTER')} → END.`, hl: { keys: ['enter'] }, done: a => M(a).mode !== 'onecal' || st(a).phase !== 'adjust' },
       disconnectMeter(),
       { t: `${k('▲/AIR')} to <b>ESCAPE</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'detect' },
@@ -234,7 +267,7 @@ const RX8000 = [
       ...gasSteps('HC50'),
       connectMeter(),
       waitStable(60, 'HC reading'),
-      { t: a => `Reading: <b>${M(a).S('HC').text()} %LEL</b> — the cylinder is 50 %LEL. Within about ±10 %? If not, calibrate.`, ack: true },
+      { t: a => `Reading: <b>${M(a).S('HC').text()} %LEL</b> — the cylinder is ${fmt(cylVal(a, 'HC50', 'HC'), 0.1)} %LEL. Within about ±10 %? If not, calibrate.`, ack: true },
       disconnectMeter(),
       { t: 'Wait until HC returns to 0 in fresh air.', done: a => M(a).S('HC').reading() < 2 },
       final('Response check done ✔'),
@@ -272,14 +305,14 @@ const GX9000 = [
     steps: [
       { t: `Press and <b>hold</b> ${k('POWER/ENTER')} (about 3 s) until it blips.`, hl: { keys: ['enter'] }, done: a => M(a).mode !== 'off' },
       { t: 'LCD fully lit, lamps and buzzer work. Then DATE → BATTERY → ALARM TYPE → NEXT MAINT DATE → GAS NAME.', done: a => M(a).mode !== 'start' || st(a).i >= 6 },
-      { t: 'FULL SCALE → WARNING → ALARM → STEL → TWA setpoints, then USER ID and STATION ID.', sub: 'O2 19.5/23.5 % · H2S 1.0/10.0 ppm · CO 25/50 ppm · CH4 10/50 %LEL', done: a => M(a).mode === 'meas' },
+      { t: 'FULL SCALE → WARNING → ALARM → STEL → TWA setpoints, then USER ID and STATION ID.', sub: alarmText, done: a => M(a).mode === 'meas' },
       final('Measurement mode ✔ — O2 | H2S | CO on top, CH4 %LEL bottom right.', 'Do a fresh air adjustment next.'),
     ],
   },
   {
-    id: 'air', title: 'Fresh air adjustment (AIR CAL)', setup: { power: 'on' },
+    id: 'air', title: 'Fresh air adjustment (AIR CAL)', setup: { power: 'on', cal: 'drift' },
     steps: [
-      { t: 'In clean air O2 shows about 20.6 % and CO/CH4 are not 0 — adjust in fresh air.', ack: true },
+      { t: 'In clean air O2 is a little below 20.9 % and CO / CH4 show a few counts — normal drift, adjust in fresh air.', ack: true },
       { t: `Hold ${k('▲/AIR')}: “HOLD AIR BUTTON” is shown.`, hl: { keys: ['up'] }, done: a => M(a).mode === 'air' },
       { t: `Keep holding until <b>RELEASE</b> appears, then let go.`, hl: { keys: ['up'] }, done: a => M(a).mode === 'air' && ['adj', 'pass', 'after'].includes(st(a).phase) },
       { t: '<b>PASS</b> — then the adjusted readings are shown.', done: a => M(a).mode === 'meas' },
@@ -305,7 +338,7 @@ const GX9000 = [
     steps: [
       ...userModeSteps,
       { t: `<b>>BUMP TEST</b> is selected. Press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'bumpmenu' },
-      { t: 'CYLINDER A shows the test gas: O2 12.0 · H2S 25.0 · CO 50 · CH4 50. Check against the cylinder label.', ack: true },
+      { t: a => `CYLINDER A shows the test gas: ${spanText(a)}. Check against the cylinder label.`, ack: true },
       ...gasSteps('MIX4'),
       connectMeter(),
       { t: `Press ${k('POWER/ENTER')} to start the bump test.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'bumprun' },
@@ -324,7 +357,7 @@ const GX9000 = [
       { t: `<b>>AIR CAL</b> first — press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'uair' },
       { t: `Hold ${k('▲/AIR')} until RELEASE, then let go → PASS.`, hl: { keys: ['up'] }, done: a => M(a).mode === 'gascal' && Math.abs(M(a).S('O2').value() - 20.9) < 0.15 },
       { t: `Press ${k('RESET/▼')} to <b>SPAN CAL</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['down', 'enter'] }, done: a => M(a).mode === 'spanmenu' },
-      { t: `CYLINDER A (O2 12.0 · H2S 25.0 · CO 50 · CH4 50). Press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'spanrun' },
+      { t: a => `CYLINDER A (${spanText(a)}). Press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'spanrun' },
       ...gasSteps('MIX4'),
       connectMeter(),
       waitStable(60),
@@ -342,7 +375,7 @@ const GX9000 = [
       { t: `Press ${k('RESET/▼')} to <b>ALARM SETTING</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['down', 'enter'] }, done: a => M(a).mode === 'alarmmenu' },
       { t: `<b>>ALARM POINTS</b> — press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'alarmpts' },
       { t: `Press ${k('RESET/▼')} to select <b>CO</b> (O2 → H2S → CO), then ${k('POWER/ENTER')}.`, hl: { keys: ['down', 'enter'] }, done: a => M(a).mode === 'alarmpts' && st(a).phase === 'edit' && st(a).sel === 2 },
-      { t: `WARNING (25 ppm) blinks. Press ${k('▲/AIR')} to set <b>30</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode !== 'alarmpts' || st(a).phase !== 'edit' || st(a).fi >= 1 },
+      { t: a => `WARNING (now ${M(a).S('CO').alarm.w} ppm) blinks. Use ${k('▲/AIR')} / ${k('RESET/▼')} to set the new value (e.g. ${M(a).S('CO').alarm.w + 5}), then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode !== 'alarmpts' || st(a).phase !== 'edit' || st(a).fi >= 1 },
       { t: `ALARM, STEL, TWA: press ${k('POWER/ENTER')} for each to keep them → END.`, hl: { keys: ['enter'] }, done: a => (M(a).mode === 'alarmpts' && st(a).phase === 'sel') },
       { t: `Press ${k('DISP/ESC')} twice to go back to the USER MODE menu.`, hl: { keys: ['mode'] }, done: a => M(a).mode === 'user' },
       { t: `Press ${k('RESET/▼')} to <b>START MEASURE</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['down', 'enter'] }, done: a => M(a).mode === 'start' || M(a).mode === 'meas' },
@@ -350,12 +383,12 @@ const GX9000 = [
     ],
   },
   {
-    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'perfect', cyl: 'N2' },
+    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
     steps: [
-      { t: 'Setpoints: O2 19.5 low / 23.5 high · H2S 1.0/10.0 · CO 25/50 · CH4 10/50 %LEL.', ack: true },
+      { t: a => `Setpoints: ${alarmText(a)}.`, ack: true },
       ...gasSteps('MIX4'),
       connectMeter(),
-      { t: 'Watch the readings rise into <b>WARNING</b> and <b>ALARM</b> — alarming cells flash.', done: a => M(a).topAlarm() >= 2 },
+      { t: 'Watch the readings rise into <b>WARNING</b> and <b>ALARM</b> — alarming cells flash.', done: a => M(a).topAlarm() >= 2 || (M(a).topAlarm() >= 1 && a.stepSim > 45) },
       disconnectMeter(),
       { t: 'Wait in fresh air until all readings are normal again.', done: a => M(a).sensors.every(s => s.alarmLevel(s.reading()) === 0) },
       { t: `Press ${k('RESET/▼')} to reset the latched alarm.`, hl: { keys: ['down'] }, done: a => M(a).topAlarm() === 0 },

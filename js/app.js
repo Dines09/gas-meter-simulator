@@ -51,6 +51,8 @@ class App {
     $('#infoBtn').onclick = () => { const d = $('#infoDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', ''); };
     $('#fsBtn').onclick = () => this.goFullscreen();
     $('#focusBtn').onclick = () => this.toggleFocus();
+    $('#factoryBtn').onclick = () => this.factoryReset();
+    $('#infoDlg').addEventListener('close', () => this.armFactory(false));
     this.setupPwa();
     this.buzzer.onBeep = ms => this.vibrate(ms);
 
@@ -58,7 +60,8 @@ class App {
     window.addEventListener('keydown', e => this.onKey(e, true));
     window.addEventListener('keyup', e => this.onKey(e, false));
     window.addEventListener('blur', () => this.releaseAllKeys());
-    document.addEventListener('visibilitychange', () => { if (document.hidden) this.releaseAllKeys(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { this.releaseAllKeys(); this.saveMeter(); } });
+    window.addEventListener('pagehide', () => this.saveMeter());
 
     this.syncButtons();
     const model = MODELS[store.get('model', 'GX-8000')] ? store.get('model', 'GX-8000') : 'GX-8000';
@@ -157,12 +160,13 @@ class App {
   // fresh = app just opened: the meter must start switched OFF, so a saved
   // lesson that begins with the meter ON is not restored (free practice instead).
   setModel(id, fresh = false) {
+    this.saveMeter(); // keep the previous model's memory
+    this.meter = null;
     this.modelId = id;
     store.set('model', id);
     const Cls = MODELS[id];
-    this.meter = new Cls(this);
     const pane = $('#meterPane');
-    pane.innerHTML = this.meter.svg();
+    pane.innerHTML = new Cls(this).svg();
     this.devSvg = pane.querySelector('svg');
     this.lcd = pane.querySelector('#lcd');
     this.lcdBg = pane.querySelector('#lcdBg');
@@ -243,7 +247,7 @@ class App {
 
   releaseAllKeys() {
     for (const [key, g] of Object.entries(this.keyEls || {})) {
-      if (this.meter.down(key)) this.meter.keyUp(key);
+      if (this.meter && this.meter.down(key)) this.meter.keyUp(key);
       g.classList.remove('pressed', 'latched');
     }
     this.latchedKeys.clear();
@@ -251,19 +255,69 @@ class App {
 
   onTubesChanged() { /* gas world reads connections every tick */ }
 
+  // ---------------------------------------------------------------- meter memory
+  // The meter keeps its calibration, alarm setpoints and settings like the real one does,
+  // across lessons and app restarts, until "Reset meter" in Help.
+  makeMeter() {
+    const m = new MODELS[this.modelId](this);
+    const key = 'dev.' + this.modelId;
+    const saved = store.get(key, null);
+    if (saved) {
+      try { m.loadState(saved); } catch (e) { console.warn('saved meter state ignored', e); }
+      // left unused for a long time: the zero drifts a little (fix it with AIR CAL)
+      const seen = store.get('seen.' + this.modelId, Date.now());
+      if (Date.now() - seen > 12 * 3600e3) m.naturalDrift();
+    }
+    store.set('seen.' + this.modelId, Date.now());
+    this.savedJson = saved ? JSON.stringify(saved) : '';
+    this.saveT = 0;
+    return m;
+  }
+
+  saveMeter() {
+    if (!this.meter || !this.modelId) return;
+    const st = this.meter.saveState();
+    const json = JSON.stringify(st);
+    if (json === this.savedJson) return;
+    this.savedJson = json;
+    store.set('dev.' + this.modelId, st);
+  }
+
+  armFactory(on) {
+    this.factoryArmed = on;
+    const b = $('#factoryBtn');
+    b.classList.toggle('armed', on);
+    b.textContent = on ? `Tap again to reset ${this.modelId}` : '↺ Reset meter to factory settings';
+    clearTimeout(this.factoryT);
+    if (on) this.factoryT = setTimeout(() => this.armFactory(false), 4000);
+  }
+
+  factoryReset() {
+    if (!this.factoryArmed) { this.armFactory(true); return; }
+    this.armFactory(false);
+    store.del('dev.' + this.modelId);
+    store.del('seen.' + this.modelId);
+    this.savedJson = '';
+    this.meter = null;
+    this.startTask(this.taskId);
+    const d = $('#infoDlg');
+    if (d.open) d.close();
+    this.toast(`${this.modelId} reset: factory calibration, alarm setpoints and settings.`, 'ok');
+  }
+
   // ---------------------------------------------------------------- tasks
   resetWorld(setup = {}) {
     this.releaseAllKeys();
-    this.meter = new MODELS[this.modelId](this);
+    this.saveMeter();
+    this.meter = this.makeMeter();
     this.lastLcd = '';
     this.tubes.reset();
     this.gas.reset({ cyl: setup.cyl });
-    const cal = setup.cal || 'drift';
-    for (const s of this.meter.sensors) {
-      s.raw = s.respond(AIR);
-      if (cal === 'perfect') { s.gain = 1; s.off = 0; }
-      else if (cal === 'aircal') s.airCal();
-    }
+    // Lessons start from the meter's own saved calibration. 'drift' adds a little natural
+    // zero drift (air-cal lessons), 'aircal' = the user already zeroed it in fresh air.
+    for (const s of this.meter.sensors) s.raw = s.respond(AIR);
+    if (setup.cal === 'drift') this.meter.naturalDrift();
+    else if (setup.cal === 'aircal') for (const s of this.meter.sensors) s.airCal();
     if (setup.power === 'on') this.meter.powerOnInstant();
   }
 
@@ -385,6 +439,8 @@ class App {
     this.renderMeter(rdt);
     this.gas.render();
     this.updateGuide(rdt, dt);
+    this.saveT += rdt;
+    if (this.saveT > 1) { this.saveT = 0; this.saveMeter(); }
     requestAnimationFrame(t => this.frame(t));
   }
 

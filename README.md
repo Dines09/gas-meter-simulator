@@ -27,6 +27,10 @@ A hands-on web simulator for training ship crews on **Riken Keiki portable gas d
 
 The gas bench has calibration cylinders (4-gas mix, isobutane %LEL and vol%, nitrogen, zero air). Each has a regulator and gauge, and there is a 2 L plastic gas sampling bag with self-sealing snap couplings. Drag flexible tubes from the cylinder to the bag, then from the bag to the meter's GAS IN. The meter pump empties the bag. If the bag runs empty, the meter shows a LOW FLOW fault.
 
+Tap a cylinder to change its gases (O2, CH4, isobutane, CO, H2S; nitrogen is the balance). A changed cylinder turns red and its label shows the new mix. The meter reads whatever is in the cylinder, so you can set up any atmosphere, for example oxygen and hydrocarbon with no toxic gas.
+
+**Meter memory:** like the real meter, each model keeps its calibration, alarm setpoints and settings (span-gas values, bump settings, IDs, date, memory records) across lessons and app restarts. Sensors drift only a little: a few ppm or a few tenths of a percent in the AIR CAL lessons, or after the meter sits unused for more than 12 hours. **Help → Reset meter to factory settings** restores the selected model.
+
 ## Landscape and install (PWA)
 
 The app is made for a phone held sideways, like the real meter. In portrait it asks you to rotate.

@@ -1,5 +1,5 @@
 import { AIR } from './meter-base.js';
-import { clamp, esc } from './util.js';
+import { clamp, esc, store } from './util.js';
 
 // Calibration cylinders. Concentrations: vol% for O2/N2/CH4/iC4H10, ppm for CO/H2S.
 export const CYLINDERS = {
@@ -36,6 +36,28 @@ const PUMP_FLOW = 0.75;   // L/min drawn by the detector pump
 
 const SPECIES = ['O2', 'N2', 'CH4', 'iC4H10', 'CO', 'H2S'];
 
+// Gases the user can put in a cylinder (N2 is the balance).
+const FIELDS = [
+  { k: 'O2', name: 'Oxygen O₂', unit: 'vol%', max: 100 },
+  { k: 'CH4', name: 'Methane CH₄', unit: 'vol%', max: 100, lel: 5.0 },
+  { k: 'iC4H10', name: 'Isobutane i-C₄H₁₀', unit: 'vol%', max: 100, lel: 1.8 },
+  { k: 'CO', name: 'Carbon monoxide CO', unit: 'ppm', max: 10000 },
+  { k: 'H2S', name: 'Hydrogen sulphide H₂S', unit: 'ppm', max: 2000 },
+];
+const num = v => String(+(+v).toFixed(2));
+const lel1 = v => String(+(+v).toFixed(1));
+const balanceN2 = c => 100 - (c.O2 || 0) - (c.CH4 || 0) - (c.iC4H10 || 0) - ((c.CO || 0) + (c.H2S || 0)) / 1e4;
+
+function labelLines(c) {
+  const L = ['CUSTOM', `O2 ${num(c.O2 || 0)}%`];
+  if (c.CH4 > 0) L.push(`CH4 ${num(c.CH4)}%`, `(${lel1((c.CH4 / 5) * 100)} %LEL)`);
+  if (c.iC4H10 > 0) L.push(`C4H10 ${num(c.iC4H10)}%`, `(${lel1((c.iC4H10 / 1.8) * 100)} %LEL)`);
+  if (c.CO > 0) L.push(`CO ${num(c.CO)} ppm`);
+  if (c.H2S > 0) L.push(`H2S ${num(c.H2S)} ppm`);
+  if (balanceN2(c) > 0.005) L.push('bal. N2');
+  return L;
+}
+
 // snap (quick-connect) coupling welded into the bag edge; dir = -1 points left, 1 points right
 function coupler(x, y, dir) {
   const d = dir;
@@ -67,9 +89,98 @@ export class GasWorld {
     this.directWarned = false;
     this.hl = new Set();
     this.drawn = 0;
+    this.custom = store.get('cyl.custom', {}) || {};
+    this.setupEditor();
   }
 
-  get cyl() { return CYLINDERS[this.cylId]; }
+  // The cylinder as it is now: the default label, or the user's own mix (red cylinder).
+  cylView(id) {
+    const base = CYLINDERS[id];
+    const comp = this.custom[id];
+    if (!comp) return base;
+    return { ...base, comp, custom: true, body: '#c62828', title: `${base.title} (changed)`, lines: labelLines(comp) };
+  }
+
+  get cyl() { return this.cylView(this.cylId); }
+  compOf(id) { return this.cylView(id).comp; }
+  isCustom(id) { return !!this.custom[id]; }
+
+  // ---------------- cylinder editor ----------------
+  setupEditor() {
+    const $ = s => document.querySelector(s);
+    this.dlg = $('#cylDlg');
+    if (!this.dlg) return;
+    const host = $('#cylFields');
+    host.innerHTML = FIELDS.map(f => `
+      <div class="cyl-field">
+        <label for="cf-${f.k}">${f.name}</label>
+        <div class="row"><input id="cf-${f.k}" data-k="${f.k}" type="number" inputmode="decimal" min="0" max="${f.max}" step="any"><span class="unit">${f.unit}</span></div>
+        <div class="eq" id="cq-${f.k}"></div>
+      </div>`).join('') + `
+      <div class="cyl-field bal">
+        <label for="cf-N2">Nitrogen N₂ (balance)</label>
+        <div class="row"><input id="cf-N2" type="text" readonly tabindex="-1"><span class="unit">vol%</span></div>
+        <div class="eq"></div>
+      </div>`;
+    this.inputs = [...host.querySelectorAll('input[data-k]')];
+    this.inputs.forEach(i => i.addEventListener('input', () => this.checkEditor()));
+    $('#cylDefault').onclick = () => { this.fillEditor(CYLINDERS[this.editId].comp); };
+    $('#cylCancel').onclick = () => this.dlg.close();
+    $('#cylSave').onclick = () => this.saveEditor();
+  }
+
+  openEditor() {
+    if (!this.dlg) return;
+    if (this.reg.open) { this.app.toast('Close the regulator before changing the cylinder gas.'); return; }
+    this.editId = this.cylId;
+    document.querySelector('#cylTitle').textContent = `Cylinder: ${CYLINDERS[this.editId].chip}`;
+    this.fillEditor(this.compOf(this.editId));
+    if (this.dlg.showModal) this.dlg.showModal(); else this.dlg.setAttribute('open', '');
+  }
+
+  fillEditor(comp) {
+    for (const i of this.inputs) i.value = num(comp[i.dataset.k] || 0);
+    this.checkEditor();
+  }
+
+  readEditor() {
+    const c = {};
+    for (const i of this.inputs) c[i.dataset.k] = i.value.trim() === '' ? 0 : Number(i.value);
+    return c;
+  }
+
+  checkEditor() {
+    const c = this.readEditor();
+    const def = CYLINDERS[this.editId].comp;
+    let err = '';
+    for (const f of FIELDS) {
+      const v = c[f.k];
+      const inp = this.inputs.find(i => i.dataset.k === f.k);
+      inp.classList.toggle('changed', Math.abs((v || 0) - (def[f.k] || 0)) > 1e-6);
+      document.querySelector('#cq-' + f.k).textContent = f.lel && v > 0 ? `= ${lel1((v / f.lel) * 100)} %LEL` : '';
+      if (!Number.isFinite(v) || v < 0 || v > f.max) err = `${f.name}: enter 0 – ${f.max} ${f.unit}.`;
+    }
+    const n2 = balanceN2(c);
+    document.querySelector('#cf-N2').value = Number.isFinite(n2) ? num(Math.max(0, n2)) : '-';
+    if (!err && n2 < -1e-6) err = `The gases add up to more than 100 % (${num(100 - n2)} %).`;
+    document.querySelector('#cylMsg').textContent = err;
+    document.querySelector('#cylSave').disabled = !!err;
+    return err ? null : c;
+  }
+
+  saveEditor() {
+    const c = this.checkEditor();
+    if (!c) return;
+    const id = this.editId;
+    const def = CYLINDERS[id].comp;
+    const same = FIELDS.every(f => Math.abs((c[f.k] || 0) - (def[f.k] || 0)) < 1e-6);
+    if (same) delete this.custom[id];
+    else this.custom[id] = { ...c, N2: Math.max(0, balanceN2(c)) };
+    store.set('cyl.custom', this.custom);
+    this.dlg.close();
+    this.build();
+    this.app.toast(same ? `${CYLINDERS[id].chip}: default values.` : `${CYLINDERS[id].chip} changed — the meter will read the new mix.`, 'ok');
+  }
 
   setCylinders(list) {
     this.cylList = list;
@@ -100,7 +211,7 @@ export class GasWorld {
   // ---------------- bench drawing ----------------
   build() {
     this.chipsHost.innerHTML = this.cylList.map(id =>
-      `<button class="cyl-chip${id === this.cylId ? ' on' : ''}" data-cyl="${id}">${esc(CYLINDERS[id].chip)}</button>`).join('');
+      `<button class="cyl-chip${id === this.cylId ? ' on' : ''}${this.isCustom(id) ? ' mod' : ''}" data-cyl="${id}">${esc(CYLINDERS[id].chip)}${this.isCustom(id) ? ' ✎' : ''}</button>`).join('');
     this.chipsHost.querySelectorAll('.cyl-chip').forEach(b => {
       b.onclick = () => this.selectCylinder(b.dataset.cyl);
     });
@@ -133,13 +244,15 @@ export class GasWorld {
 
   <!-- cylinder -->
   <g transform="translate(262,0)">
-  <g id="cylinder">
+  <g id="cylinder" class="tap">
     <path d="M28 96 Q28 74 63 70 Q98 74 98 96 L98 250 Q98 258 90 258 L36 258 Q28 258 28 250 Z" fill="${c.body}"/>
     <path d="M28 96 Q28 74 63 70 Q98 74 98 96 L98 250 Q98 258 90 258 L36 258 Q28 258 28 250 Z" fill="url(#cylG)"/>
     <rect x="28" y="104" width="70" height="12" fill="${c.band}"/>
     <rect x="33" y="120" width="60" height="${Math.max(44, c.lines.length * 12 + 6)}" rx="3" fill="#fbfbf6" stroke="#9aa" stroke-width=".6"/>
     ${lines}
     <rect x="54" y="58" width="18" height="14" fill="url(#metalH)"/>
+    <rect x="41" y="239" width="44" height="14" rx="7" fill="#11171b" opacity=".82"/>
+    <text x="63" y="249.5" text-anchor="middle" font-size="8" font-weight="800" fill="#ffd23f" font-family="Inter, Arial, sans-serif">✎ EDIT</text>
   </g>
 
   <!-- regulator -->
@@ -208,6 +321,7 @@ export class GasWorld {
     };
     this.el.knob.addEventListener('click', () => this.toggleRegulator());
     this.el.emptyBtn.addEventListener('click', () => this.emptyBag());
+    this.el.cylinder.addEventListener('click', () => this.openEditor());
 
     const t = this.app.tubes;
     t.registerPort('reg', this.svg.querySelector('#port-reg'), [-1, 0]);
@@ -270,7 +384,7 @@ export class GasWorld {
       if (this.isBagPort(regPeer)) {
         if (this.bag.vol < BAG_CAP) {
           const add = Math.min(FILL_FLOW * min, BAG_CAP - this.bag.vol);
-          this.addToBag(this.cyl.comp, add);
+          this.addToBag(this.compOf(this.cylId), add);
           this.pressure[this.cylId] = Math.max(0, this.pressure[this.cylId] - add * 0.004);
         } else {
           this.warn('full', 'Bag is full: close the regulator now.');
@@ -294,7 +408,7 @@ export class GasWorld {
         this.directWarned = true;
         this.app.toast('Tip: the manual connects the meter to a gas sampling bag, not straight to the cylinder.');
       }
-      return this.reg.open && this.pressure[this.cylId] > 0 ? { comp: this.cyl.comp, blocked: false } : { comp: null, blocked: true };
+      return this.reg.open && this.pressure[this.cylId] > 0 ? { comp: this.compOf(this.cylId), blocked: false } : { comp: null, blocked: true };
     }
     if (this.isBagPort(p)) {
       const other = p === 'bagIn' ? 'bagOut' : 'bagIn';
@@ -372,11 +486,11 @@ export class GasWorld {
     if (!c) return '';
     let best = null, bestD = Infinity;
     for (const id of this.cylList) {
-      const cc = CYLINDERS[id].comp;
+      const cc = this.compOf(id);
       let d = 0;
       for (const s of SPECIES) d += Math.abs((c[s] || 0) - (cc[s] || 0)) / (s === 'CO' || s === 'H2S' ? 50 : 10);
       if (d < bestD) { bestD = d; best = id; }
     }
-    return bestD < 0.15 ? CYLINDERS[best].chip : 'mixed gas';
+    return bestD < 0.15 ? CYLINDERS[best].chip + (this.isCustom(best) ? ' (changed)' : '') : 'mixed gas';
   }
 }

@@ -36,8 +36,9 @@ export class GX9000 extends MeterBase {
     this.userId = '----------';
     this.stationId = 0;
     this.drift = {
-      normal: { O2: { gain: 0.984, off: 0 }, H2S: { gain: 0.93, off: 0.3 }, CO: { gain: 1.18, off: 2 }, LEL: { gain: 0.9, off: 2 } },
+      normal: { O2: { gain: 0.984, off: 0 }, H2S: { gain: 0.96, off: 0.3 }, CO: { gain: 1.04, off: 3 }, LEL: { gain: 0.96, off: 2 } },
     };
+    this.persist.push('span', 'bumpSet', 'latching', 'buzzerOn', 'buzzerHigh', 'userId');
     this.applyDrift();
     this.backlight = 0;
   }

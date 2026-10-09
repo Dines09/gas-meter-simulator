@@ -36,8 +36,9 @@ export class GX8000 extends MeterBase {
     this.bumpSet = { time: 30, range: 30, adj: 60, auto: true };
     this.stationId = 0;
     this.drift = {
-      normal: { LEL: { gain: 0.92, off: 3 }, O2: { gain: 0.981, off: 0 }, CO: { gain: 1.24, off: 2 }, H2S: { gain: 0.96, off: 0.5 } },
+      normal: { LEL: { gain: 0.96, off: 2 }, O2: { gain: 0.981, off: 0 }, CO: { gain: 1.04, off: 3 }, H2S: { gain: 0.97, off: 0.5 } },
     };
+    this.persist.push('span', 'bumpSet');
     this.applyDrift();
     this.backlight = 0;
   }
