@@ -5,7 +5,7 @@
 // PREFIX. Deleting "every cache except mine" wipes the other installed apps'
 // offline copies (they then say "still installing, open with a connection").
 const PREFIX = 'gas-trainer-';
-const CACHE = PREFIX + 'v6';
+const CACHE = PREFIX + 'v7';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/app.js', 'js/audio.js', 'js/device.js', 'js/gasworld.js', 'js/gx8000.js', 'js/gx9000.js',

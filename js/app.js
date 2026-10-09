@@ -63,7 +63,7 @@ class App {
     this.syncButtons();
     const model = MODELS[store.get('model', 'GX-8000')] ? store.get('model', 'GX-8000') : 'GX-8000';
     ms.value = model;
-    this.setModel(model);
+    this.setModel(model, true);
 
     this.last = performance.now();
     requestAnimationFrame(t => this.frame(t));
@@ -154,7 +154,9 @@ class App {
   }
 
   // ---------------------------------------------------------------- model / device
-  setModel(id) {
+  // fresh = app just opened: the meter must start switched OFF, so a saved
+  // lesson that begins with the meter ON is not restored (free practice instead).
+  setModel(id, fresh = false) {
     this.modelId = id;
     store.set('model', id);
     const Cls = MODELS[id];
@@ -176,7 +178,9 @@ class App {
     this.tasks = TASKS[id] || [];
     this.fillTaskSelect();
     const saved = store.get('task.' + id, this.tasks.length ? this.tasks[0].id : 'free');
-    this.startTask(this.tasks.some(t => t.id === saved) || saved === 'free' ? saved : 'free');
+    const task = this.tasks.find(t => t.id === saved);
+    const startsOff = !task || !task.setup || task.setup.power !== 'on';
+    this.startTask(task && (!fresh || startsOff) ? saved : 'free');
   }
 
   fillTaskSelect() {
