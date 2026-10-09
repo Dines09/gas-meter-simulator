@@ -325,6 +325,7 @@ class App {
     for (const s of this.meter.sensors) s.raw = s.respond(AIR);
     if (setup.cal === 'drift') this.meter.naturalDrift();
     else if (setup.cal === 'aircal') for (const s of this.meter.sensors) s.airCal();
+    this.wasOn = setup.power === 'on';
     if (setup.power === 'on') this.meter.powerOnInstant();
   }
 
@@ -340,6 +341,19 @@ class App {
     this.resetWorld(this.task ? this.task.setup : { power: 'off' });
     this.guideCache = {};
     this.renderGuide(true);
+  }
+
+  // Leave the lesson but keep the meter and the gas bench exactly as they are.
+  stopTask(msg) {
+    this.taskId = 'free';
+    store.set('task.' + this.modelId, 'free');
+    $('#taskSelect').value = 'free';
+    this.task = null;
+    this.stepIdx = 0;
+    this.taskDone = false;
+    this.guideCache = {};
+    this.renderGuide(true);
+    if (msg) this.toast(msg, 'bad');
   }
 
   get step() { return this.task ? this.task.steps[this.stepIdx] : null; }
@@ -365,6 +379,13 @@ class App {
   }
 
   updateGuide(rdt, dt) {
+    // Meter switched off during a lesson, and the step did not ask for it: the lesson no longer
+    // matches the meter, so stop it and go back to free practice (no stale key highlights).
+    const on = this.meter.on;
+    if (this.task && this.wasOn && !on && !(this.step && this.step.powerOff)) {
+      this.stopTask(this.taskDone ? '' : `Meter switched off: lesson “${this.task.title}” stopped. Choose it again from the list to start from step 1.`);
+    }
+    this.wasOn = on;
     const step = this.step;
     if (step && !step.final && !step.ack) {
       this.stepT += rdt;

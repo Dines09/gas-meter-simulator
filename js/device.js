@@ -2,8 +2,8 @@
 
 // Normal view: 580 x 372. Meter view (wide): the body is WIDE_DX wider, keys and LCD are larger,
 // so the meter fills a landscape phone and the keys are easier to press.
-export const WIDE_DX = 120;
-const KEY_SCALE_WIDE = 1.2;
+export const WIDE_DX = 190;
+const KEY_SCALE_WIDE = 1.3;
 
 // ribbed, spring-like translucent lens (side alarm LED arrays)
 function coil(x, y, w, h, n) {
@@ -45,13 +45,13 @@ export function deviceSVG(opts) {
   const red = theme === 'red';
   const dx = wide ? WIDE_DX : 0;
   const cx = 272 + dx / 2; // centre of the face
-  const lcdK = wide ? 1.15 : 1;
+  const lcdK = wide ? 1.22 : 1;
   const LCD_W = 244 * lcdK, LCD_H = 152 * lcdK;
-  const LCD_X = cx + 8 - LCD_W / 2, LCD_Y = wide ? 86 : 92;
+  const LCD_X = cx + 8 - LCD_W / 2, LCD_Y = wide ? 80 : 92;
   // keys: left ones stay left, right ones move with the right edge; spread a little vertically
   const ks = wide ? KEY_SCALE_WIDE : 1;
   const place = k => (wide
-    ? { ...k, x: k.x < 290 ? k.x + 6 : k.x + dx - 6, y: Math.round(206 + (k.y - 206) * 1.13) }
+    ? { ...k, x: k.x < 290 ? k.x + 14 : k.x + dx - 14, y: Math.round(206 + (k.y - 206) * 1.2) }
     : k);
   const bumper = red ? '#c8261d' : '#1d2124';
   const bumperHi = red ? '#ee4a3d' : '#3a4045';
@@ -112,7 +112,7 @@ export function deviceSVG(opts) {
   ${opts.stripes || ''}
   <rect x="72" y="58" width="28" height="24" rx="3" fill="#8b949b"/><rect x="76" y="62" width="20" height="16" rx="2" fill="#c3cad0"/>
   <g transform="translate(110,66)" fill="#3a4147">${[0, 1, 2].map(i => `<circle cx="${i * 7}" cy="0" r="2"/><circle cx="${i * 7}" cy="7" r="2"/>`).join('')}</g>
-  <g transform="translate(${cx + 8},${wide ? 66 : 74})">
+  <g transform="translate(${cx + 8},${wide ? 60 : 74})">
     <path d="M-74 -9 l9 0 l-6 9 l6 9 l-9 0 l-6 -9z" fill="#e8ecef"/>
     <path d="M-62 -9 l6 0 l-6 9 l6 9 l-6 0 l-6 -9z" fill="${red ? '#e8ecef' : '#d42a20'}"/>
     <text x="10" y="7" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="22" letter-spacing="1.5" fill="#f1f4f6">RIKEN KEIKI</text>
@@ -123,7 +123,7 @@ export function deviceSVG(opts) {
   <rect id="lcdBg" x="${LCD_X}" y="${LCD_Y}" width="${LCD_W}" height="${LCD_H}" rx="4" fill="${lcdBg}"/>
   <svg id="lcd" x="${LCD_X}" y="${LCD_Y}" width="${LCD_W}" height="${LCD_H}" viewBox="${lcdViewBox}" preserveAspectRatio="none"></svg>
   <rect x="${LCD_X}" y="${LCD_Y}" width="${LCD_W}" height="${LCD_H}" rx="4" fill="url(#glassG)" pointer-events="none"/>
-  <text x="${cx + 8}" y="${LCD_Y + LCD_H + (wide ? 31 : 34)}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-style="italic" font-weight="700" font-size="25" letter-spacing="1" fill="#eef1f3">${model}</text>
+  <text x="${cx + 8}" y="${LCD_Y + LCD_H + (wide ? 30 : 34)}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-style="italic" font-weight="700" font-size="25" letter-spacing="1" fill="#eef1f3">${model}</text>
   ${extra}
   ${keys.map(k => key(place(k), ks)).join('')}
 </svg>`;

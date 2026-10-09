@@ -35,8 +35,8 @@ export class RX8000 extends MeterBase {
     const stripes = `
       <rect x="70" y="48" width="140" height="5" rx="2" fill="#f2c230"/>
       <rect x="${350 + (wide ? WIDE_DX : 0)}" y="48" width="140" height="5" rx="2" fill="#2f8fe0"/>
-      <text x="62" y="210" font-family="Barlow Condensed, Arial Narrow" font-weight="700" font-size="15" fill="#f4f6f8">CAL</text>
-      <path d="M78 186 L70 192 L70 226 L78 232" fill="none" stroke="#f4f6f8" stroke-width="2"/>`;
+      <text x="51" y="211" font-family="Barlow Condensed, Arial Narrow" font-weight="700" font-size="13.5" fill="#f4f6f8">CAL</text>
+      <path d="M84 186 L76 192 L76 226 L84 232" fill="none" stroke="#f4f6f8" stroke-width="2"/>`;
     return deviceSVG({
       model: 'RX-8000', theme: 'red', wide, lcdBg: '#b9c3b6', lcdViewBox: '0 0 240 150', stripes,
       keys: [

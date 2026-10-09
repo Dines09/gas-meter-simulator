@@ -203,7 +203,7 @@ const GX8000 = [
     id: 'off', title: 'Power OFF', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: 'Before switching off, let the meter draw fresh air until all readings are back to normal.', ack: true },
-      { t: `Hold ${k('POWER/ENTER')} for about 3 seconds until the display goes off.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'off' },
+      { t: `Hold ${k('POWER/ENTER')} for about 3 seconds until the display goes off.`, hl: { keys: ['enter'] }, powerOff: true, done: a => M(a).mode === 'off' },
       final('Meter off ✔ — recharge the battery after use.'),
     ],
   },
@@ -287,7 +287,7 @@ const RX8000 = [
   {
     id: 'off', title: 'Power OFF', setup: { power: 'on', cal: 'aircal' },
     steps: [
-      { t: `Hold ${k('POWER/ENTER')} for about 3 seconds until the display goes off.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'off' },
+      { t: `Hold ${k('POWER/ENTER')} for about 3 seconds until the display goes off.`, hl: { keys: ['enter'] }, powerOff: true, done: a => M(a).mode === 'off' },
       final('Meter off ✔'),
     ],
   },
@@ -295,7 +295,7 @@ const RX8000 = [
 
 // ---------------------------------------------------------------- GX-9000
 const userModeSteps = [
-  { t: `Switch the meter <b>OFF</b>: hold ${k('POWER/ENTER')} for about 3 s.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'off' },
+  { t: `Switch the meter <b>OFF</b>: hold ${k('POWER/ENTER')} for about 3 s.`, hl: { keys: ['enter'] }, powerOff: true, done: a => M(a).mode === 'off' },
   { t: `User mode: hold ${k('POWER/ENTER')} and ${k('▲/AIR')} <b>together</b> until it blips.`, sub: 'Two fingers on a phone, or keyboard Enter + Q.', hl: { keys: ['enter', 'up'] }, done: a => M(a).mode === 'user' },
 ];
 
