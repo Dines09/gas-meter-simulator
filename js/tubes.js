@@ -28,10 +28,24 @@ export class Tubes {
     this.hlPorts = new Set();
     this.W = 1; this.H = 1; this.dpr = 1;
     this.t = 0;
+    this.scale = 1; this.tx = 0; this.ty = 0; // view zoom (screen = world * scale + t)
     stage.addEventListener('pointerdown', e => this.onDown(e), true);
     stage.addEventListener('pointermove', e => this.onMove(e), true);
     stage.addEventListener('pointerup', e => this.onUp(e), true);
     stage.addEventListener('pointercancel', e => this.onUp(e), true);
+  }
+
+  // Zoom changed: move every particle with the view so hoses stay attached and keep their shape.
+  setView(scale, tx, ty) {
+    const f = (x, y) => [((x - this.tx) / this.scale) * scale + tx, ((y - this.ty) / this.scale) * scale + ty];
+    for (const t of this.tubes) {
+      for (const p of t.pts) {
+        [p.x, p.y] = f(p.x, p.y);
+        [p.px, p.py] = f(p.px, p.py);
+      }
+    }
+    if (this.drag) [this.drag.x, this.drag.y] = f(this.drag.x, this.drag.y);
+    this.scale = scale; this.tx = tx; this.ty = ty;
   }
 
   // a solid body (the meter) that hoses must hang around, never across
@@ -195,9 +209,12 @@ export class Tubes {
   step(dt) {
     this.t += dt;
     dt = Math.min(dt, 1 / 30);
-    const floor = this.H - 5;
+    const k = this.scale;
+    const floor = (this.H - 5) * k + this.ty;
+    const xMin = 3 * k + this.tx, xMax = (this.W - 3) * k + this.tx;
     for (const t of this.tubes) {
       const P = t.pts;
+      const seg = t.seg * k;
       for (let k = 0; k < N; k++) {
         const p = P[k];
         const vx = (p.x - p.px) * 0.985, vy = (p.y - p.py) * 0.985;
@@ -211,12 +228,12 @@ export class Tubes {
           const a = P[k], b = P[k + 1];
           const dx = b.x - a.x, dy = b.y - a.y;
           const d = Math.hypot(dx, dy) || 1e-4;
-          const diff = (d - t.seg) / d * 0.5;
+          const diff = (d - seg) / d * 0.5;
           a.x += dx * diff; a.y += dy * diff;
           b.x -= dx * diff; b.y -= dy * diff;
         }
-        this.applyPin(P, 0, 1, pin0, t.seg);
-        this.applyPin(P, N - 1, N - 2, pin1, t.seg);
+        this.applyPin(P, 0, 1, pin0, seg);
+        this.applyPin(P, N - 1, N - 2, pin1, seg);
         if (this.ob) {
           const o = this.ob;
           for (let q = 2; q < N - 2; q++) {
@@ -230,8 +247,8 @@ export class Tubes {
         }
         for (const p of P) {
           if (p.y > floor) { p.y = floor; p.px = p.x - (p.x - p.px) * 0.6; }
-          if (p.x < 3) p.x = 3;
-          if (p.x > this.W - 3) p.x = this.W - 3;
+          if (p.x < xMin) p.x = xMin;
+          if (p.x > xMax) p.x = xMax;
         }
       }
     }
@@ -282,7 +299,9 @@ export class Tubes {
       }
     }
 
+    c.save();
     for (const t of this.tubes) this.drawTube(t);
+    c.restore();
   }
 
   path(P) {
@@ -300,11 +319,12 @@ export class Tubes {
     const c = this.ctx;
     const P = t.pts;
     const [fill, edge] = COLORS[t.color];
+    const k = this.scale;
     c.lineCap = 'round'; c.lineJoin = 'round';
-    c.save(); c.translate(1.5, 3); this.path(P); c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 10; c.stroke(); c.restore();
-    this.path(P); c.strokeStyle = edge; c.lineWidth = 9.5; c.stroke();
-    this.path(P); c.strokeStyle = fill; c.lineWidth = 7; c.stroke();
-    c.save(); c.translate(-1.2, -1.6); this.path(P); c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 1.8; c.stroke(); c.restore();
+    c.save(); c.translate(1.5 * k, 3 * k); this.path(P); c.strokeStyle = 'rgba(0,0,0,0.35)'; c.lineWidth = 10 * k; c.stroke(); c.restore();
+    this.path(P); c.strokeStyle = edge; c.lineWidth = 9.5 * k; c.stroke();
+    this.path(P); c.strokeStyle = fill; c.lineWidth = 7 * k; c.stroke();
+    c.save(); c.translate(-1.2 * k, -1.6 * k); this.path(P); c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 1.8 * k; c.stroke(); c.restore();
     for (const i of [0, 1]) this.drawFitting(t, i);
   }
 
@@ -318,6 +338,7 @@ export class Tubes {
     c.save();
     c.translate(a.x, a.y);
     c.rotate(ang);
+    c.scale(this.scale, this.scale);
     const g = c.createLinearGradient(0, -6, 0, 6);
     g.addColorStop(0, '#f2f4f6'); g.addColorStop(0.5, '#9aa4ac'); g.addColorStop(1, '#5d666d');
     c.fillStyle = g;

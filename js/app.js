@@ -7,6 +7,7 @@ import { RX8000 } from './rx8000.js';
 import { GX9000 } from './gx9000.js';
 import { TASKS } from './tasks.js';
 import { store } from './util.js';
+import { Zoom } from './zoom.js';
 
 const MODELS = { 'GX-8000': GX8000, 'RX-8000': RX8000, 'GX-9000': GX9000 };
 const KEYMAP = {
@@ -26,6 +27,7 @@ class App {
     this.stage = $('#stage');
     this.tubes = new Tubes(this, this.stage, $('#tubeCanvas'));
     this.gas = new GasWorld(this, $('#bench'), $('#cylChips'), $('#benchStatus'));
+    this.zoom = new Zoom(this, this.stage, [$('#meterPane'), $('.side')], $('#zoomUi'));
     this.latchedKeys = new Set();
     this.lastLcd = '';
     this.lcdT = 0;
