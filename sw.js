@@ -1,9 +1,9 @@
 // Offline support: app shell is cached; same-origin files use stale-while-revalidate.
-const CACHE = 'gas-trainer-v3';
+const CACHE = 'gas-trainer-v4';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/app.js', 'js/audio.js', 'js/device.js', 'js/gasworld.js', 'js/gx8000.js', 'js/gx9000.js',
-  'js/meter-base.js', 'js/rx8000.js', 'js/seg.js', 'js/tasks.js', 'js/tubes.js', 'js/util.js', 'js/zoom.js',
+  'js/meter-base.js', 'js/rx8000.js', 'js/seg.js', 'js/tasks.js', 'js/tubes.js', 'js/util.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png', 'icons/maskable-512.png',
 ];
 

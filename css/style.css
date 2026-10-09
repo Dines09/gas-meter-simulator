@@ -78,8 +78,9 @@ button, select { font-family: inherit; }
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
+.meter-wrap { position: relative; z-index: 6; min-height: 0; min-width: 0; display: flex; }
 .meter-pane {
-  position: relative; z-index: 6; min-height: 0; min-width: 0;
+  position: relative; flex: 1; min-height: 0; min-width: 0;
   display: flex; align-items: center; justify-content: center;
   padding: 4px 2px 4px 6px;
 }
@@ -114,6 +115,7 @@ button, select { font-family: inherit; }
 }
 .guide-sub { font-size: 12px; color: var(--muted); line-height: 1.35; margin-top: 2px; }
 .guide-sub:empty { display: none; }
+.guide-act:empty { display: none; }
 .guide .next-btn {
   margin-top: 4px; border: 0; border-radius: 7px; padding: 5px 11px;
   background: var(--ok); color: #062312; font-size: 12.5px; font-weight: 800; cursor: pointer;
@@ -141,21 +143,6 @@ button, select { font-family: inherit; }
 .bench svg { width: 100%; height: 100%; display: block; }
 .bench-status { font-size: 11px; color: var(--muted); padding: 0 8px 4px; min-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bench-status b { color: var(--text); font-weight: 600; }
-
-.zoom-ui {
-  position: absolute; left: 8px; bottom: 8px; z-index: 9;
-  display: flex; gap: 2px; padding: 3px; border-radius: 10px;
-  background: rgba(22,28,33,.82); border: 1px solid var(--line); backdrop-filter: blur(4px);
-}
-.zoom-ui button {
-  border: 0; background: transparent; color: var(--text); font-size: 17px; font-weight: 800;
-  width: 32px; height: 28px; border-radius: 7px; cursor: pointer; line-height: 1;
-}
-.zoom-ui button:active { background: var(--panel-2); }
-.zoom-ui .zlbl { width: auto; min-width: 44px; font-size: 11.5px; color: var(--muted); padding: 0 4px; }
-.zoom-ui .zfit { display: none; font-size: 15px; color: var(--accent); }
-.zoom-ui.zoomed .zfit { display: block; }
-.zoom-ui.zoomed .zlbl { color: var(--accent); }
 
 #tubeCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
@@ -253,3 +240,23 @@ button, select { font-family: inherit; }
   .guide-text { font-size: 16px; }
   .guide-sub { font-size: 13px; }
 }
+
+/* ---------- meter full-screen view ---------- */
+.focus-btn {
+  position: absolute; top: 6px; right: 6px; z-index: 7;
+  border: 1px solid var(--line); background: rgba(28,35,41,.9); color: var(--text);
+  border-radius: 9px; padding: 5px 10px; font-size: 12.5px; font-weight: 800; cursor: pointer;
+}
+.focus-btn:active { background: var(--panel-2); }
+#app.focus .topbar { display: none; }
+#app.focus #stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+#app.focus .side { grid-row: 1; padding: 4px 6px 0; }
+#app.focus .meter-wrap { grid-row: 2; }
+#app.focus .bench-pane, #app.focus #tubeCanvas, #app.focus .guide-sub, #app.focus .guide-count, #app.focus .guide-progress { display: none; }
+#app.focus .guide { display: flex; align-items: center; gap: 8px; min-height: 0; padding: 4px 10px; }
+#app.focus .guide-head { flex: none; }
+#app.focus .guide-text { flex: 1; min-width: 0; margin: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#app.focus .guide-act { flex: none; }
+#app.focus .guide .next-btn { margin: 0; padding: 4px 10px; }
+#app.focus .meter-pane { padding: 2px 4px 4px; }
+#app.focus .focus-btn { top: 4px; right: 4px; }

@@ -7,7 +7,6 @@ import { RX8000 } from './rx8000.js';
 import { GX9000 } from './gx9000.js';
 import { TASKS } from './tasks.js';
 import { store } from './util.js';
-import { Zoom } from './zoom.js';
 
 const MODELS = { 'GX-8000': GX8000, 'RX-8000': RX8000, 'GX-9000': GX9000 };
 const KEYMAP = {
@@ -27,7 +26,6 @@ class App {
     this.stage = $('#stage');
     this.tubes = new Tubes(this, this.stage, $('#tubeCanvas'));
     this.gas = new GasWorld(this, $('#bench'), $('#cylChips'), $('#benchStatus'));
-    this.zoom = new Zoom(this, this.stage, [$('#meterPane'), $('.side')], $('#zoomUi'));
     this.latchedKeys = new Set();
     this.lastLcd = '';
     this.lcdT = 0;
@@ -52,6 +50,7 @@ class App {
     $('#resetBtn').onclick = () => this.startTask(this.taskId);
     $('#infoBtn').onclick = () => { const d = $('#infoDlg'); if (d.showModal) d.showModal(); else d.setAttribute('open', ''); };
     $('#fsBtn').onclick = () => this.goFullscreen();
+    $('#focusBtn').onclick = () => this.toggleFocus();
     this.setupPwa();
     this.buzzer.onBeep = ms => this.vibrate(ms);
 
@@ -84,6 +83,26 @@ class App {
       else if (document.fullscreenElement) { await document.exitFullscreen(); return; }
     } catch { /* fullscreen not available (iPhone Safari) */ }
     this.lockLandscape();
+  }
+
+  // Meter view: only the meter, as big as possible, with one instruction line on top.
+  async toggleFocus() {
+    const app = $('#app');
+    this.focus = !this.focus;
+    app.classList.toggle('focus', this.focus);
+    $('#focusBtn').textContent = this.focus ? '✕ Normal view' : '⛶ Meter';
+    this.guideCache = {};
+    const standalone = window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+    try {
+      if (this.focus && !document.fullscreenElement && !standalone && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+        this.focusFs = true;
+      } else if (!this.focus && this.focusFs && document.fullscreenElement) {
+        this.focusFs = false;
+        await document.exitFullscreen();
+      }
+    } catch { /* fullscreen not available (iPhone Safari) */ }
+    if (this.focus) this.lockLandscape();
   }
 
   lockLandscape() {
@@ -293,7 +312,7 @@ class App {
   renderGuide(force = false) {
     const g = $('#guide');
     const val = v => (typeof v === 'function' ? v(this) : v) || '';
-    let mode, count, text, sub, pct, cls;
+    let mode, count, text, sub, pct, cls, act = '';
     if (!this.task) {
       mode = 'FREE'; count = this.modelId; text = 'Free practice — use the meter and the gas bench any way you like.';
       sub = this.meter.help(); pct = 0; cls = 'free';
@@ -306,14 +325,17 @@ class App {
       sub = val(step.sub);
       pct = this.taskDone ? 100 : (this.stepIdx / n) * 100;
       cls = this.taskDone ? 'done' : '';
-      if (step.ack) sub += `${sub ? '<br>' : ''}<button class="next-btn" data-act="ack">Got it ▸</button>`;
+      if (step.ack) act = `<button class="next-btn" data-act="ack">Got it ▸</button>`;
+      else if (this.focus && step.hl && ((step.hl.bench && step.hl.bench.length) || (step.hl.ports && step.hl.ports.length))) {
+        act = `<button class="next-btn" data-act="bench">Show gas bench ▸</button>`;
+      }
       if (this.taskDone) {
         const i = this.tasks.indexOf(this.task);
         const next = this.tasks[i + 1];
-        sub += `${sub ? '<br>' : ''}<button class="next-btn" data-act="${next ? 'next' : 'free'}">${next ? `Next: ${next.title} ▸` : 'Free practice ▸'}</button>`;
+        act = `<button class="next-btn" data-act="${next ? 'next' : 'free'}">${next ? `Next: ${next.title} ▸` : 'Free practice ▸'}</button>`;
       }
     }
-    const key = [mode, count, text, sub, pct, cls].join('|');
+    const key = [mode, count, text, sub, pct, cls, act].join('|');
     if (!force && key === this.guideCache.key) { this.applyHighlights(); return; }
     this.guideCache.key = key;
     g.className = `guide ${cls}`;
@@ -321,11 +343,13 @@ class App {
     $('#guideCount').textContent = count;
     $('#guideText').innerHTML = text;
     $('#guideSub').innerHTML = sub;
+    $('#guideAct').innerHTML = act;
     $('#guideBar').style.width = `${pct}%`;
     g.querySelectorAll('[data-act]').forEach(b => {
       b.onclick = () => {
         const act = b.dataset.act;
         if (act === 'ack') this.advance();
+        else if (act === 'bench') this.toggleFocus();
         else if (act === 'next') this.startTask(this.tasks[this.tasks.indexOf(this.task) + 1].id);
         else this.startTask('free');
       };
@@ -347,11 +371,13 @@ class App {
     this.last = ts;
     const dt = rdt * this.speed;
 
-    this.tubes.layout();
+    if (!this.focus) this.tubes.layout();
     this.gas.update(dt);
     this.meter.tick(rdt, dt);
-    this.tubes.step(rdt);
-    this.tubes.draw();
+    if (!this.focus) {
+      this.tubes.step(rdt);
+      this.tubes.draw();
+    }
     this.renderMeter(rdt);
     this.gas.render();
     this.updateGuide(rdt, dt);
