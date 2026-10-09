@@ -165,6 +165,11 @@ export class GasWorld {
   </g>
   </g>
   <circle id="port-reg" cx="272" cy="42.5" r="3" fill="none"/>
+  <g id="regHint" class="reg-hint" style="display:none">
+    <rect x="226" y="4" width="78" height="22" rx="7" fill="#ffd23f"/>
+    <path d="M304 10 l9 5 l-9 5 z" fill="#ffd23f"/>
+    <text id="regHintTxt" x="265" y="19" text-anchor="middle" font-size="10.5" font-weight="900" fill="#1b1300" font-family="Inter, Arial, sans-serif">TAP: OPEN</text>
+  </g>
 
   <!-- gas sampling bag: plain tinted plastic bag with self-sealing snap couplings -->
   <g id="bagGroup">
@@ -196,6 +201,8 @@ export class GasWorld {
       bagTxt: this.svg.querySelector('#bagTxt'),
       bagSub: this.svg.querySelector('#bagSub'),
       knob: this.svg.querySelector('#knob'),
+      regHint: this.svg.querySelector('#regHint'),
+      regHintTxt: this.svg.querySelector('#regHintTxt'),
       emptyBtn: this.svg.querySelector('#emptyBtn'),
       cylinder: this.svg.querySelector('#cylinder'),
     };
@@ -342,10 +349,21 @@ export class GasWorld {
     });
 
     const regPeer = this.app.tubes.peer('reg');
+    // guide the user to the cylinder valve: open it when the bag is connected but empty, close it when full
+    const needOpen = !this.reg.open && this.isBagPort(regPeer) && this.bag.vol < 1.5;
+    const needClose = this.reg.open && (this.bag.vol >= BAG_CAP - 0.05 || !regPeer || regPeer === 'free');
+    const hint = needOpen ? 'TAP: OPEN' : needClose ? 'TAP: CLOSE' : '';
+    if (hint !== this._hint) {
+      this._hint = hint;
+      this.el.regHint.style.display = hint ? '' : 'none';
+      this.el.regHintTxt.textContent = hint;
+    }
     const status = [
       `Cylinder: <b>${esc(this.cyl.title)}</b>`,
       `Regulator <b>${this.reg.open ? 'OPEN' : 'closed'}</b>${this.reg.open && this.isBagPort(regPeer) ? ' · filling bag' : ''}`,
     ];
+    if (needOpen) status.push('<b style="color:#ffd23f">→ open the cylinder valve (tap the knob)</b>');
+    else if (needClose) status.push('<b style="color:#ffd23f">→ close the cylinder valve</b>');
     this.statusHost.innerHTML = status.join(' · ');
   }
 

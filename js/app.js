@@ -377,7 +377,7 @@ class App {
     if (!this.focus) {
       this.tubes.step(rdt);
       this.tubes.draw();
-    }
+    } else this.tubes.drawFocus();
     this.renderMeter(rdt);
     this.gas.render();
     this.updateGuide(rdt, dt);
