@@ -106,7 +106,7 @@ const GX8000 = [
     ],
   },
   {
-    id: 'bump', title: 'Bump test (BUMP)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'bump', title: 'Bump test (BUMP)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: `Hold ${k('▼/RESET')} and, while holding it, press ${k('DISPLAY')}. Release when it beeps.`, sub: 'This opens the Calibration mode menu (AIR CAL).', hl: { keys: ['down', 'mode'] }, done: a => M(a).mode === 'menu' },
       { t: `Press ${k('▲/AIR')} until the bottom line shows <b>BUMP</b>.`, sub: 'AIR CAL → AUTO CAL → ONE CAL → BUMP', hl: { keys: ['up'] }, done: a => M(a).mode === 'menu' && M(a).items()[st(a).i] === 'BUMP' },
@@ -124,7 +124,7 @@ const GX8000 = [
     ],
   },
   {
-    id: 'autocal', title: 'Span calibration – all gases (AUTO CAL)', setup: { power: 'on', cyl: 'N2' },
+    id: 'autocal', title: 'Span calibration – all gases (AUTO CAL)', setup: { power: 'on' },
     steps: [
       { t: `Hold ${k('▼/RESET')} and press ${k('DISPLAY')} → Calibration mode.`, hl: { keys: ['down', 'mode'] }, done: a => M(a).mode === 'menu' },
       { t: `First a fresh air calibration: with <b>AIR CAL</b> shown, press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'air' },
@@ -143,7 +143,7 @@ const GX8000 = [
     ],
   },
   {
-    id: 'onecal', title: 'Single gas calibration (ONE CAL – any gas)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'onecal', title: 'Single gas calibration (ONE CAL – any gas)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: `Hold ${k('▼/RESET')} and press ${k('DISPLAY')} → Calibration mode.`, hl: { keys: ['down', 'mode'] }, done: a => M(a).mode === 'menu' },
       { t: `Press ${k('▲/AIR')} until <b>ONE CAL</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'onecal' },
@@ -171,7 +171,7 @@ const GX8000 = [
     ],
   },
   {
-    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: a => `Alarm setpoints: ${alarmText(a)}.`, sub: 'You will expose the meter to test gas in normal detection mode.', ack: true },
       ...gasSteps('MIX4'),
@@ -231,7 +231,7 @@ const RX8000 = [
     ],
   },
   {
-    id: 'spanhc', title: 'Span calibration HC %LEL (ONE CAL)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'spanhc', title: 'Span calibration HC %LEL (ONE CAL)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: `Press ${k('▲/AIR')} and ${k('▼/PUMP')} <b>together</b> and hold about 1 s → span mode (ONE CAL).`, sub: 'Two fingers on a phone, or keyboard Q + A.', hl: { keys: ['up', 'down'] }, done: a => M(a).mode === 'onecal' },
       { t: `<b>HC ---  %LEL</b> is selected. Press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && st(a).sel === 0 },
@@ -246,7 +246,7 @@ const RX8000 = [
     ],
   },
   {
-    id: 'spano2', title: 'O2 calibration with nitrogen (ONE CAL)', setup: { power: 'on', cal: 'aircal', cyl: 'HC50' },
+    id: 'spano2', title: 'O2 calibration with nitrogen (ONE CAL)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: `Hold ${k('▲/AIR')} + ${k('▼/PUMP')} together ~1 s → ONE CAL.`, hl: { keys: ['up', 'down'] }, done: a => M(a).mode === 'onecal' },
       { t: `Press ${k('▲/AIR')} until <b>O2 ---</b> is shown, then ${k('POWER/ENTER')}.`, sub: 'HC %LEL → HC vol% → O2 → ESCAPE', hl: { keys: ['up', 'enter'] }, done: a => M(a).mode === 'onecal' && st(a).phase === 'adjust' && st(a).sel === 2 },
@@ -261,7 +261,7 @@ const RX8000 = [
     ],
   },
   {
-    id: 'check', title: 'Gas response check (before use)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'check', title: 'Gas response check (before use)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: 'Before entering tanks, check the meter responds correctly to a known gas.', ack: true },
       ...gasSteps('HC50'),
@@ -334,7 +334,7 @@ const GX9000 = [
     ],
   },
   {
-    id: 'bump', title: 'Bump test (User mode)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'bump', title: 'Bump test (User mode)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       ...userModeSteps,
       { t: `<b>>BUMP TEST</b> is selected. Press ${k('POWER/ENTER')}.`, hl: { keys: ['enter'] }, done: a => M(a).mode === 'bumpmenu' },
@@ -350,7 +350,7 @@ const GX9000 = [
     ],
   },
   {
-    id: 'span', title: 'Span calibration (User mode GAS CAL)', setup: { power: 'on', cyl: 'N2' },
+    id: 'span', title: 'Span calibration (User mode GAS CAL)', setup: { power: 'on' },
     steps: [
       ...userModeSteps,
       { t: `Press ${k('RESET/▼')} to <b>GAS CAL</b>, then ${k('POWER/ENTER')}.`, hl: { keys: ['down', 'enter'] }, done: a => M(a).mode === 'gascal' },
@@ -383,7 +383,7 @@ const GX9000 = [
     ],
   },
   {
-    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'aircal', cyl: 'N2' },
+    id: 'gasalarm', title: 'Gas alarm check (with test gas)', setup: { power: 'on', cal: 'aircal' },
     steps: [
       { t: a => `Setpoints: ${alarmText(a)}.`, ack: true },
       ...gasSteps('MIX4'),

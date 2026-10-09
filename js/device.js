@@ -1,6 +1,9 @@
 // Front-panel artwork for the simulated detectors (pure SVG, scales with the viewport).
 
-const LCD_X = 158, LCD_Y = 92, LCD_W = 244, LCD_H = 152;
+// Normal view: 580 x 372. Meter view (wide): the body is WIDE_DX wider, keys and LCD are larger,
+// so the meter fills a landscape phone and the keys are easier to press.
+export const WIDE_DX = 120;
+const KEY_SCALE_WIDE = 1.2;
 
 // ribbed, spring-like translucent lens (side alarm LED arrays)
 function coil(x, y, w, h, n) {
@@ -19,11 +22,11 @@ function ribs(x, y, w, h, n) {
   return s;
 }
 
-function key({ key, x, y, l1, l2, small }) {
+function key({ key, x, y, l1, l2, small }, scale = 1) {
   const font = 'Barlow Condensed, Arial Narrow, Arial, sans-serif';
   const fs = small ? 13.5 : 15;
   return `
-  <g class="dev-key" data-key="${key}" transform="translate(${x},${y})">
+  <g class="dev-key" data-key="${key}" transform="translate(${x},${y}) scale(${scale})">
     <circle class="ring" r="41"/>
     <circle r="35" fill="#08090a"/>
     <g class="cap">
@@ -38,14 +41,24 @@ function key({ key, x, y, l1, l2, small }) {
 }
 
 export function deviceSVG(opts) {
-  const { model, theme, keys, lcdBg, lcdViewBox, extra = '' } = opts;
+  const { model, theme, keys, lcdBg, lcdViewBox, extra = '', wide = false } = opts;
   const red = theme === 'red';
+  const dx = wide ? WIDE_DX : 0;
+  const cx = 272 + dx / 2; // centre of the face
+  const lcdK = wide ? 1.15 : 1;
+  const LCD_W = 244 * lcdK, LCD_H = 152 * lcdK;
+  const LCD_X = cx + 8 - LCD_W / 2, LCD_Y = wide ? 86 : 92;
+  // keys: left ones stay left, right ones move with the right edge; spread a little vertically
+  const ks = wide ? KEY_SCALE_WIDE : 1;
+  const place = k => (wide
+    ? { ...k, x: k.x < 290 ? k.x + 6 : k.x + dx - 6, y: Math.round(206 + (k.y - 206) * 1.13) }
+    : k);
   const bumper = red ? '#c8261d' : '#1d2124';
   const bumperHi = red ? '#ee4a3d' : '#3a4045';
   const face = red ? '#14171a' : '#121416';
 
   return `
-<svg viewBox="0 0 580 372" preserveAspectRatio="xMidYMid meet" aria-label="${model} front panel">
+<svg viewBox="0 0 ${580 + dx} 372" preserveAspectRatio="xMidYMid meet" aria-label="${model} front panel">
   <defs>
     <radialGradient id="keyG" cx=".42" cy=".35" r=".8">
       <stop offset="0" stop-color="#2c3136"/><stop offset=".7" stop-color="#121417"/><stop offset="1" stop-color="#08090a"/>
@@ -66,12 +79,12 @@ export function deviceSVG(opts) {
   </defs>
 
   <!-- body -->
-  <rect x="26" y="22" width="504" height="340" rx="40" fill="#0d0f11"/>
-  <rect id="devBody" x="20" y="14" width="504" height="340" rx="40" fill="url(#bumpG)"/>
-  ${red ? '' : `<rect x="20" y="14" width="504" height="340" rx="40" fill="none" stroke="#2c3236" stroke-width="3"/>`}
+  <rect x="26" y="22" width="${504 + dx}" height="340" rx="40" fill="#0d0f11"/>
+  <rect id="devBody" x="20" y="14" width="${504 + dx}" height="340" rx="40" fill="url(#bumpG)"/>
+  ${red ? '' : `<rect x="20" y="14" width="${504 + dx}" height="340" rx="40" fill="none" stroke="#2c3236" stroke-width="3"/>`}
 
   <!-- gas inlet / outlet on the right-hand side of the body -->
-  <g>
+  <g transform="translate(${dx},0)">
     <text x="544" y="46" text-anchor="middle" font-size="12" font-weight="800" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">GAS IN</text>
     <rect x="518" y="58" width="24" height="20" rx="3" fill="#2a2f33"/>
     <path d="M540 61 L560 63 L560 73 L540 75 Z" fill="url(#nozG)" stroke="#555" stroke-width="1"/>
@@ -83,23 +96,23 @@ export function deviceSVG(opts) {
 
   <!-- alarm lamps: top lens + ribbed side lenses -->
   <g id="lamps">
-    <rect x="232" y="4" width="80" height="24" rx="6" fill="#5a1410"/>
-    <rect class="lamp" data-off="#7a1c14" x="236" y="7" width="72" height="18" rx="4" fill="#7a1c14"/>
-    ${ribs(236, 7, 72, 18, 12)}
+    <rect x="${cx - 40}" y="4" width="80" height="24" rx="6" fill="#5a1410"/>
+    <rect class="lamp" data-off="#7a1c14" x="${cx - 36}" y="7" width="72" height="18" rx="4" fill="#7a1c14"/>
+    ${ribs(cx - 36, 7, 72, 18, 12)}
     ${coil(12, 132, 15, 104, 13)}
-    ${coil(517, 132, 15, 104, 13)}
+    ${coil(517 + dx, 132, 15, 104, 13)}
     <rect class="lamp" data-off="rgba(255,40,30,0)" x="12" y="132" width="15" height="104" rx="7.5" fill="rgba(255,40,30,0)"/>
-    <rect class="lamp" data-off="rgba(255,40,30,0)" x="517" y="132" width="15" height="104" rx="7.5" fill="rgba(255,40,30,0)"/>
-    <rect id="lampGlow" x="216" y="-6" width="112" height="44" rx="20" fill="#ff3b2f" opacity="0" filter="url(#lampGlow)"/>
+    <rect class="lamp" data-off="rgba(255,40,30,0)" x="${517 + dx}" y="132" width="15" height="104" rx="7.5" fill="rgba(255,40,30,0)"/>
+    <rect id="lampGlow" x="${cx - 56}" y="-6" width="112" height="44" rx="20" fill="#ff3b2f" opacity="0" filter="url(#lampGlow)"/>
   </g>
 
   <!-- face plate -->
-  <rect x="48" y="40" width="448" height="292" rx="26" fill="${face}"/>
-  ${theme === 'black' ? `<rect x="56" y="48" width="432" height="276" rx="20" fill="none" stroke="#d42a20" stroke-width="3"/>` : ''}
+  <rect x="48" y="40" width="${448 + dx}" height="292" rx="26" fill="${face}"/>
+  ${theme === 'black' ? `<rect x="56" y="48" width="${432 + dx}" height="276" rx="20" fill="none" stroke="#d42a20" stroke-width="3"/>` : ''}
   ${opts.stripes || ''}
   <rect x="72" y="58" width="28" height="24" rx="3" fill="#8b949b"/><rect x="76" y="62" width="20" height="16" rx="2" fill="#c3cad0"/>
   <g transform="translate(110,66)" fill="#3a4147">${[0, 1, 2].map(i => `<circle cx="${i * 7}" cy="0" r="2"/><circle cx="${i * 7}" cy="7" r="2"/>`).join('')}</g>
-  <g transform="translate(280,74)">
+  <g transform="translate(${cx + 8},${wide ? 66 : 74})">
     <path d="M-74 -9 l9 0 l-6 9 l6 9 l-9 0 l-6 -9z" fill="#e8ecef"/>
     <path d="M-62 -9 l6 0 l-6 9 l6 9 l-6 0 l-6 -9z" fill="${red ? '#e8ecef' : '#d42a20'}"/>
     <text x="10" y="7" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="22" letter-spacing="1.5" fill="#f1f4f6">RIKEN KEIKI</text>
@@ -110,9 +123,9 @@ export function deviceSVG(opts) {
   <rect id="lcdBg" x="${LCD_X}" y="${LCD_Y}" width="${LCD_W}" height="${LCD_H}" rx="4" fill="${lcdBg}"/>
   <svg id="lcd" x="${LCD_X}" y="${LCD_Y}" width="${LCD_W}" height="${LCD_H}" viewBox="${lcdViewBox}" preserveAspectRatio="none"></svg>
   <rect x="${LCD_X}" y="${LCD_Y}" width="${LCD_W}" height="${LCD_H}" rx="4" fill="url(#glassG)" pointer-events="none"/>
-  <text x="280" y="${LCD_Y + LCD_H + 34}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-style="italic" font-weight="700" font-size="25" letter-spacing="1" fill="#eef1f3">${model}</text>
+  <text x="${cx + 8}" y="${LCD_Y + LCD_H + (wide ? 31 : 34)}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-style="italic" font-weight="700" font-size="25" letter-spacing="1" fill="#eef1f3">${model}</text>
   ${extra}
-  ${keys.map(key).join('')}
+  ${keys.map(k => key(place(k), ks)).join('')}
 </svg>`;
 }
 

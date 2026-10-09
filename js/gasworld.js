@@ -36,6 +36,10 @@ const PUMP_FLOW = 0.75;   // L/min drawn by the detector pump
 
 const SPECIES = ['O2', 'N2', 'CH4', 'iC4H10', 'CO', 'H2S'];
 
+// bench layout: bag edges, and the cylinder valve handwheel (cylinder coordinates)
+const BAG_X0 = 52, BAG_X1 = 206;
+const KX = 112, KY = 45;
+
 // Gases the user can put in a cylinder (N2 is the balance).
 const FIELDS = [
   { k: 'O2', name: 'Oxygen O₂', unit: 'vol%', max: 100 },
@@ -193,7 +197,8 @@ export class GasWorld {
     this.reg.open = false;
     this.bag = { vol: 0, amt: {} };
     for (const id of this.cylList) this.pressure[id] = 1;
-    if (cyl && this.cylList.includes(cyl)) this.cylId = cyl;
+    // every lesson and free practice starts on the model's main test gas (4-gas mix / HC 50 %LEL)
+    this.cylId = cyl && this.cylList.includes(cyl) ? cyl : this.cylList[0];
     this.build();
   }
 
@@ -260,7 +265,7 @@ export class GasWorld {
     <rect x="44" y="30" width="38" height="30" rx="5" fill="url(#metalH)" stroke="#59626a" stroke-width="1"/>
     <rect x="24" y="38" width="22" height="9" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
     <path d="M12 40 L24 39 L24 46 L12 45 Z" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
-    <g id="gauge" transform="translate(54,0)">
+    <g id="gauge" transform="translate(27,-29)">
       <circle cx="36" cy="46" r="15" fill="#e9eef1" stroke="#4a545c" stroke-width="2.5"/>
       <path d="M26 52 A11 11 0 1 1 46 52" fill="none" stroke="#2e7d32" stroke-width="2.5"/>
       <path d="M26 52 A11 11 0 0 1 25.5 42" fill="none" stroke="#c62828" stroke-width="2.5"/>
@@ -269,39 +274,41 @@ export class GasWorld {
       <text x="36" y="58" text-anchor="middle" font-size="4.5" fill="#333" font-family="Inter, Arial, sans-serif">MPa</text>
     </g>
     <g id="knob" class="tap">
-      <circle cx="63" cy="20" r="22" fill="transparent"/>
-      <rect x="51" y="20" width="24" height="12" fill="url(#metalH)"/>
-      <circle cx="63" cy="16" r="13" fill="#222a30" stroke="#0e1215" stroke-width="1.5"/>
-      <g id="knobMark"><rect x="61.5" y="4" width="3" height="9" rx="1.5" fill="#ffd23f"/></g>
-      <text id="regLbl" x="63" y="19.5" text-anchor="middle" font-size="6.6" font-weight="800" fill="#fff" font-family="Inter, Arial, sans-serif">OFF</text>
+      <circle cx="${KX}" cy="${KY}" r="27" fill="transparent"/>
+      <rect x="80" y="${KY - 5}" width="${KX - 98}" height="10" fill="url(#metalG)" stroke="#59626a" stroke-width=".8"/>
+      <circle cx="${KX}" cy="${KY}" r="19" fill="#1b2227" stroke="#0b0f12" stroke-width="2"/>
+      ${[...Array(10)].map((_, i) => { const a = (i * Math.PI) / 5; return `<circle cx="${(KX + Math.cos(a) * 18).toFixed(1)}" cy="${(KY + Math.sin(a) * 18).toFixed(1)}" r="3.2" fill="#2c353c" stroke="#0b0f12" stroke-width="1"/>`; }).join('')}
+      <circle cx="${KX}" cy="${KY}" r="13" fill="#232c33"/>
+      <g id="knobMark"><rect x="${KX - 1.75}" y="${KY - 18}" width="3.5" height="10" rx="1.75" fill="#ffd23f"/></g>
+      <text id="regLbl" x="${KX}" y="${KY + 3}" text-anchor="middle" font-size="8" font-weight="800" fill="#fff" font-family="Inter, Arial, sans-serif">OFF</text>
     </g>
   </g>
   </g>
   <circle id="port-reg" cx="272" cy="42.5" r="3" fill="none"/>
   <g id="regHint" class="reg-hint" style="display:none">
-    <rect x="226" y="4" width="78" height="22" rx="7" fill="#ffd23f"/>
-    <path d="M304 10 l9 5 l-9 5 z" fill="#ffd23f"/>
-    <text id="regHintTxt" x="265" y="19" text-anchor="middle" font-size="10.5" font-weight="900" fill="#1b1300" font-family="Inter, Arial, sans-serif">TAP: OPEN</text>
+    <rect x="${262 + KX - 32}" y="0" width="64" height="17" rx="6" fill="#ffd23f"/>
+    <path d="M${262 + KX - 5} 17 l5 6 l5 -6 z" fill="#ffd23f"/>
+    <text id="regHintTxt" x="${262 + KX}" y="12.3" text-anchor="middle" font-size="9.5" font-weight="900" fill="#1b1300" font-family="Inter, Arial, sans-serif">TAP: OPEN</text>
   </g>
 
   <!-- gas sampling bag: plain tinted plastic bag with self-sealing snap couplings -->
   <g id="bagGroup">
     <path id="bagBody" d="" fill="url(#bagG)" stroke="#5f86a8" stroke-width="1.4"/>
     <path id="bagSeam" d="" fill="none" stroke="#7fa6c7" stroke-width="5" opacity=".45"/>
-    <text id="bagTxt" x="145" y="170" text-anchor="middle" font-size="13" font-weight="800" fill="#e6f0f8" font-family="Inter, Arial, sans-serif"></text>
-    <text id="bagSub" x="145" y="184" text-anchor="middle" font-size="8.5" font-weight="600" fill="#b9cfe0" font-family="Inter, Arial, sans-serif"></text>
-    <text x="100" y="246" text-anchor="middle" font-size="8.5" font-weight="700" fill="#7f97a8" font-family="Inter, Arial, sans-serif">GAS SAMPLING BAG · 2 L</text>
-    ${coupler(52, 165, -1)}
-    ${coupler(238, 165, 1)}
-    <text x="256" y="152" text-anchor="middle" font-size="8" font-weight="800" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">IN</text>
-    <text x="34" y="152" text-anchor="middle" font-size="8" font-weight="800" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">OUT</text>
+    <text id="bagTxt" x="${(BAG_X0 + BAG_X1) / 2}" y="170" text-anchor="middle" font-size="13" font-weight="800" fill="#e6f0f8" font-family="Inter, Arial, sans-serif"></text>
+    <text id="bagSub" x="${(BAG_X0 + BAG_X1) / 2}" y="184" text-anchor="middle" font-size="8.5" font-weight="600" fill="#b9cfe0" font-family="Inter, Arial, sans-serif"></text>
+    <text x="${BAG_X0 + 34}" y="246" text-anchor="middle" font-size="8.5" font-weight="700" fill="#7f97a8" font-family="Inter, Arial, sans-serif">GAS SAMPLING BAG · 2 L</text>
+    ${coupler(BAG_X0 - 4, 165, -1)}
+    ${coupler(BAG_X1 + 4, 165, 1)}
+    <text x="${BAG_X1 + 22}" y="152" text-anchor="middle" font-size="8" font-weight="800" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">IN</text>
+    <text x="${BAG_X0 - 22}" y="152" text-anchor="middle" font-size="8" font-weight="800" fill="#9fb0bc" font-family="Inter, Arial, sans-serif">OUT</text>
     <g id="emptyBtn" class="tap">
-      <rect x="172" y="234" width="62" height="24" rx="7" fill="#232c33" stroke="#3d4b55"/>
-      <text x="203" y="250" text-anchor="middle" font-size="9.5" font-weight="700" fill="#cfd8de" font-family="Inter, Arial, sans-serif">Squeeze out</text>
+      <rect x="${BAG_X1 - 62}" y="234" width="62" height="24" rx="7" fill="#232c33" stroke="#3d4b55"/>
+      <text x="${BAG_X1 - 31}" y="250" text-anchor="middle" font-size="9.5" font-weight="700" fill="#cfd8de" font-family="Inter, Arial, sans-serif">Squeeze out</text>
     </g>
   </g>
-  <circle id="port-bagIn" cx="269" cy="165" r="3" fill="none"/>
-  <circle id="port-bagOut" cx="21" cy="165" r="3" fill="none"/>
+  <circle id="port-bagIn" cx="${BAG_X1 + 35}" cy="165" r="3" fill="none"/>
+  <circle id="port-bagOut" cx="${BAG_X0 - 35}" cy="165" r="3" fill="none"/>
 </svg>`;
 
     this.svg = this.host.querySelector('svg');
@@ -425,7 +432,7 @@ export class GasWorld {
 
   // ---------------- per-frame visuals ----------------
   bagPath(inf) {
-    const x0 = 56, x1 = 234, yT = 124, yB = 206;
+    const x0 = BAG_X0, x1 = BAG_X1, yT = 124, yB = 206;
     const midY = (yT + yB) / 2;
     const bulge = 1 + inf * 20;
     const pinch = inf * 8;
@@ -441,7 +448,7 @@ export class GasWorld {
     const p = this.pressure[this.cylId] ?? 1;
     const ang = -120 + p * 240;
     this.el.needle.setAttribute('transform', `rotate(${ang.toFixed(1)} 36 46)`);
-    this.el.knobMark.setAttribute('transform', `rotate(${this.reg.open ? 90 : 0} 63 16)`);
+    this.el.knobMark.setAttribute('transform', `rotate(${this.reg.open ? 90 : 0} ${KX} ${KY})`);
     this.el.regLbl.textContent = this.reg.open ? 'ON' : 'OFF';
     this.el.regLbl.setAttribute('fill', this.reg.open ? '#7dff9a' : '#fff');
 

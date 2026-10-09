@@ -45,9 +45,9 @@ export class GX9000 extends MeterBase {
 
   static cylinders = ['MIX4', 'N2', 'ZAIR'];
 
-  svg() {
+  svg(wide = false) {
     return deviceSVG({
-      model: 'GX-9000', theme: 'black', lcdBg: '#e3e7e2', lcdViewBox: '0 0 256 150',
+      model: 'GX-9000', theme: 'black', wide, lcdBg: '#e3e7e2', lcdViewBox: '0 0 256 150',
       keys: [
         { key: 'up', ...KEYPOS.leftTop, l1: '▲', l2: 'AIR' },
         { key: 'down', ...KEYPOS.leftBot, l1: 'RESET', l2: '▼', small: true },

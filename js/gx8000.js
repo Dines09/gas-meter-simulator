@@ -45,9 +45,9 @@ export class GX8000 extends MeterBase {
 
   static cylinders = ['MIX4', 'N2', 'ZAIR'];
 
-  svg() {
+  svg(wide = false) {
     return deviceSVG({
-      model: 'GX-8000', theme: 'red', lcdBg: '#b8c2b2', lcdViewBox: '0 0 240 150',
+      model: 'GX-8000', theme: 'red', wide, lcdBg: '#b8c2b2', lcdViewBox: '0 0 240 150',
       keys: [
         { key: 'up', ...KEYPOS.leftTop, l1: '▲/AIR' },
         { key: 'down', ...KEYPOS.leftBot, l1: '▼', l2: 'RESET' },

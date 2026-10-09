@@ -1,7 +1,7 @@
 // RIKEN KEIKI RX-8000 (HC %LEL / vol% by infrared + O2) — behaviour follows
 // Operating Manual PT0E-1194. Gas alarms are an optional setting; this unit shows NO ALARM.
 import { MeterBase, Sensor } from './meter-base.js';
-import { deviceSVG, KEYPOS } from './device.js';
+import { deviceSVG, KEYPOS, WIDE_DX } from './device.js';
 import { draw7, draw14, heart, fan, battery, text } from './seg.js';
 import { clamp, fmt, roundTo, pad } from './util.js';
 
@@ -31,14 +31,14 @@ export class RX8000 extends MeterBase {
 
   static cylinders = ['HC50', 'HCV', 'N2', 'ZAIR'];
 
-  svg() {
+  svg(wide = false) {
     const stripes = `
       <rect x="70" y="48" width="140" height="5" rx="2" fill="#f2c230"/>
-      <rect x="350" y="48" width="140" height="5" rx="2" fill="#2f8fe0"/>
+      <rect x="${350 + (wide ? WIDE_DX : 0)}" y="48" width="140" height="5" rx="2" fill="#2f8fe0"/>
       <text x="62" y="210" font-family="Barlow Condensed, Arial Narrow" font-weight="700" font-size="15" fill="#f4f6f8">CAL</text>
       <path d="M78 186 L70 192 L70 226 L78 232" fill="none" stroke="#f4f6f8" stroke-width="2"/>`;
     return deviceSVG({
-      model: 'RX-8000', theme: 'red', lcdBg: '#b9c3b6', lcdViewBox: '0 0 240 150', stripes,
+      model: 'RX-8000', theme: 'red', wide, lcdBg: '#b9c3b6', lcdViewBox: '0 0 240 150', stripes,
       keys: [
         { key: 'up', ...KEYPOS.leftTop, x: 116, l1: '▲', l2: 'AIR' },
         { key: 'down', ...KEYPOS.leftBot, x: 116, l1: 'PUMP', l2: '▼' },

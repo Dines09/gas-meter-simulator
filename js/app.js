@@ -88,12 +88,14 @@ class App {
     this.lockLandscape();
   }
 
-  // Meter view: only the meter, as big as possible, with one instruction line on top.
+  // Meter view: only the meter, wider and with bigger keys, one instruction line at the bottom.
   async toggleFocus() {
     const app = $('#app');
     this.focus = !this.focus;
+    this.releaseAllKeys();
     app.classList.toggle('focus', this.focus);
-    $('#focusBtn').textContent = this.focus ? '✕ Normal view' : '⛶ Meter';
+    this.buildDevice();
+    $('#focusBtn').textContent = this.focus ? '✕ Normal' : '⛶ Meter';
     this.guideCache = {};
     const standalone = window.matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
     try {
@@ -157,16 +159,28 @@ class App {
   }
 
   // ---------------------------------------------------------------- model / device
-  // fresh = app just opened: the meter must start switched OFF, so a saved
-  // lesson that begins with the meter ON is not restored (free practice instead).
+  // fresh = app just opened: always free practice with the meter OFF, so it behaves like
+  // picking up the real meter. Lessons are only a guide, chosen from the list.
   setModel(id, fresh = false) {
     this.saveMeter(); // keep the previous model's memory
     this.meter = null;
     this.modelId = id;
     store.set('model', id);
     const Cls = MODELS[id];
+    this.tubes.reset();
+    this.buildDevice();
+    this.gas.setCylinders(Cls.cylinders);
+    this.tasks = TASKS[id] || [];
+    this.fillTaskSelect();
+    const saved = store.get('task.' + id, 'free');
+    this.startTask(!fresh && this.tasks.some(t => t.id === saved) ? saved : 'free');
+  }
+
+  // Front-panel artwork: normal, or wide with bigger keys in meter view. The meter itself
+  // (state, memory) is not touched, only the drawing and the key bindings.
+  buildDevice() {
     const pane = $('#meterPane');
-    pane.innerHTML = new Cls(this).svg();
+    pane.innerHTML = (this.meter || new MODELS[this.modelId](this)).svg(!!this.focus);
     this.devSvg = pane.querySelector('svg');
     this.lcd = pane.querySelector('#lcd');
     this.lcdBg = pane.querySelector('#lcdBg');
@@ -175,16 +189,9 @@ class App {
     this.keyEls = {};
     pane.querySelectorAll('.dev-key').forEach(g => this.bindKey(g));
     this.lastLcd = '';
-    this.tubes.reset();
+    this.lcdT = 1;
     this.tubes.registerPort('meterIn', pane.querySelector('#port-meterIn'), [1, 0]);
     this.tubes.setObstacle(pane.querySelector('#devBody'));
-    this.gas.setCylinders(Cls.cylinders);
-    this.tasks = TASKS[id] || [];
-    this.fillTaskSelect();
-    const saved = store.get('task.' + id, this.tasks.length ? this.tasks[0].id : 'free');
-    const task = this.tasks.find(t => t.id === saved);
-    const startsOff = !task || !task.setup || task.setup.power !== 'on';
-    this.startTask(task && (!fresh || startsOff) ? saved : 'free');
   }
 
   fillTaskSelect() {
